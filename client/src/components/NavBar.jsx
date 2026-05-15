@@ -67,14 +67,14 @@ export default function NavBar() {
 							<span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e9dccf] text-sm font-semibold text-[#111111] shadow-[0_8px_20px_rgba(17,17,17,0.08)]">
 								A
 							</span>
-							<span className="hidden text-sm font-medium sm:block">Alex</span>
+							<span className="hidden text-sm font-medium sm:block">Akithma</span>
 							<ChevronDown className="h-4 w-4 text-[#8f6a4b]" />
 						</summary>
 
 						<div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_24px_60px_rgba(17,17,17,0.14)]">
 							<div className="border-b border-black/5 px-4 py-3">
-								<p className="text-sm font-semibold text-[#111111]">Alex</p>
-								<p className="text-xs text-[#6e6258]">alex@pantrypal.com</p>
+								<p className="text-sm font-semibold text-[#111111]">Akithma</p>
+								<p className="text-xs text-[#6e6258]">akithma@pantrypal.com</p>
 							</div>
 							<div className="p-2">
 								<Link
