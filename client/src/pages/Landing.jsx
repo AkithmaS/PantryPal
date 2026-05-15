@@ -4,11 +4,11 @@ import {
   BadgeCheck,
   ChefHat,
   CookingPot,
-  Leaf,
   ScanSearch,
   TimerReset,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import logoIcon from '../assets/icon.png';
 import heroBackground from '../assets/brooke-lark-jUPOXXRNdcA-unsplash.jpg';
 import ctaBackground from '../assets/new.jpg';
 import {
@@ -54,10 +54,14 @@ export default function Landing() {
           <motion.div initial="hidden" animate="visible" variants={stagger} className="max-w-2xl">
             <motion.div
               variants={fadeUp}
-              className="inline-flex items-center gap-2 rounded-full border border-[#ff7a18]/20 bg-white/85 px-4 py-2 text-sm font-medium text-[#d45d10] shadow-[0_10px_24px_rgba(17,17,17,0.06)] backdrop-blur"
+              className="inline-flex items-center gap-4"
             >
-              <Leaf className="h-4 w-4" />
-              Smart pantry management for everyday kitchens
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dfa14d] shadow-[0_10px_24px_rgba(17,17,17,0.08)]">
+                <img src={logoIcon} alt="PantryPal logo" className="h-8 w-8 object-contain" />
+              </span>
+              <span className="text-4xl font-semibold tracking-tight text-[#111111]">
+                PantryPal
+              </span>
             </motion.div>
 
             <motion.h1

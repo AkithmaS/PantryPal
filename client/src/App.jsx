@@ -13,16 +13,23 @@ import AIGenerator from './pages/FindRecipe/AIGenerator';
 import ManualAdd from './pages/FindRecipe/ManualAdd';
 import SearchRecipes from './pages/FindRecipe/SearchRecipes';
 import NavBar from './components/NavBar';
+import Footer from './components/Footer';
 
 function PublicShell({ children }) {
-  return <div className="min-h-screen bg-[#fff8f0] text-stone-900">{children}</div>;
+  return (
+    <div className="flex min-h-screen flex-col bg-[#fff8f0] text-stone-900">
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </div>
+  );
 }
 
 function PrivateShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#fff8f0] text-stone-900">
+    <div className="flex min-h-screen flex-col bg-[#fff8f0] text-stone-900">
       <NavBar />
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }
