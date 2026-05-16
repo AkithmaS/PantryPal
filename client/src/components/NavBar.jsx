@@ -10,7 +10,7 @@ import shoppingIcon from '../assets/shopping-cart.png';
 const navItems = [
 	{ to: '/dashboard', label: 'Dashboard', icon: dashboardIcon },
 	{ to: '/pantry', label: 'Pantry', icon: pantryIcon },
-	{ to: '/find-recipe/search', label: 'Recipes', icon: recipesIcon },
+	{ to: '/recipes', label: 'Recipes', icon: recipesIcon },
 	{ to: '/meal-plan', label: 'Meal Planner', icon: mealPlanIcon },
 	{ to: '/shopping', label: 'Shopping Card', icon: shoppingIcon },
 ];

@@ -11,7 +11,7 @@ import {
   TimerReset,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import dashboardBackground from '../assets/dashboard-background.jpg';
+import dashboardBackground from '../assets/screen.png';
 import recentRecipeOne from '../assets/recentrecipe1.png';
 import recentRecipeTwo from '../assets/meal2.jpg';
 import discoverRecipesImage from '../assets/meal1.jpg';
