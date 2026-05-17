@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Pantry from './pages/Pantry';
 import MyRecipes from './pages/Recipes/Recipe-home';
 import MealPlan from './pages/MealPlan';
-import Shopping from './pages/Shopping';
+import ShoppingList from './pages/ShoppingList';
 import Settings from './pages/Settings';
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
@@ -84,7 +84,7 @@ export default function App() {
         path="/shopping"
         element={
           <PrivateShell>
-            <Shopping />
+            <ShoppingList />
           </PrivateShell>
         }
       />

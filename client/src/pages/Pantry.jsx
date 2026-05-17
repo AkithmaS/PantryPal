@@ -9,53 +9,9 @@ import {
   X,
 } from 'lucide-react';
 import PantryAddItem from './pantry_additem';
+import { usePantry } from '../context/PantryContext';
 
 const categories = ['Fruits', 'Dairy', 'Meat', 'Grains', 'Spices', 'Other'];
-
-const initialItems = [
-  {
-    id: 1,
-    name: 'Strawberries',
-    category: 'Fruits',
-    quantity: '250.00 grams',
-    expiryDate: '2026-05-12',
-  },
-  {
-    id: 2,
-    name: 'Coconut Milk',
-    category: 'Other',
-    quantity: '400.00 ml',
-    expiryDate: '2026-05-18',
-  },
-  {
-    id: 3,
-    name: 'Chickpeas',
-    category: 'Grains',
-    quantity: '1.00 can',
-    expiryDate: '2026-05-19',
-  },
-  {
-    id: 4,
-    name: 'Canned Tomatoes',
-    category: 'Other',
-    quantity: '2.00 cans',
-    expiryDate: '2026-05-21',
-  },
-  {
-    id: 5,
-    name: 'Mayonnaise',
-    category: 'Dairy',
-    quantity: '300.00 ml',
-    expiryDate: '2026-05-17',
-  },
-  {
-    id: 6,
-    name: 'Ketchup',
-    category: 'Spices',
-    quantity: '400.00 ml',
-    expiryDate: '2026-06-10',
-  },
-];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -149,10 +105,11 @@ function PantryItemCard({ item, onDelete }) {
 }
 
 export default function Pantry() {
-  const [items, setItems] = useState(initialItems);
+  const { items, addItem, removeItem } = usePantry();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     quantity: '',
@@ -187,7 +144,25 @@ export default function Pantry() {
   );
 
   const handleDeleteItem = (id) => {
-    setItems((currentItems) => currentItems.filter((item) => item.id !== id));
+    const itemToDelete = items.find((item) => item.id === id);
+    if (!itemToDelete) {
+      return;
+    }
+
+    setDeleteTarget(itemToDelete);
+  };
+
+  const confirmDeleteItem = () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    removeItem(deleteTarget.id);
+    setDeleteTarget(null);
+  };
+
+  const cancelDeleteItem = () => {
+    setDeleteTarget(null);
   };
 
   const openAddItemModal = () => {
@@ -227,7 +202,7 @@ export default function Pantry() {
       runningLow: formData.runningLow,
     };
 
-    setItems((currentItems) => [nextItem, ...currentItems]);
+    addItem(nextItem);
     setIsAddItemOpen(false);
   };
 
@@ -343,6 +318,52 @@ export default function Pantry() {
         onChange={handleFormChange}
         categories={categories}
       />
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            className="absolute inset-0 bg-[#111111]/45 backdrop-blur-[2px]"
+            onClick={cancelDeleteItem}
+            aria-label="Close delete confirmation"
+          />
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 14 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 14 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="relative z-10 w-full max-w-lg overflow-hidden rounded-[30px] border border-[#ead9c7] bg-[#fffaf4] shadow-[0_30px_80px_rgba(17,17,17,0.22)]"
+          >
+            <div className="border-b border-[#ead9c7] px-6 py-5 sm:px-8">
+              <h2 className="font-display text-2xl font-semibold text-[#111111] sm:text-3xl">
+                Delete Pantry Item?
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#6e6258]">
+                Are you sure you want to delete {deleteTarget.name} from your pantry?
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 px-6 py-6 sm:flex-row sm:justify-end sm:px-8">
+              <button
+                type="button"
+                onClick={cancelDeleteItem}
+                className="inline-flex items-center justify-center rounded-2xl border border-[#d8cab9] bg-white px-6 py-3 text-sm font-semibold text-[#111111] transition hover:bg-[#fff4ea]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteItem}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_30px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5"
+              >
+                <X className="h-4 w-4" />
+                Delete Item
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
     </div>
   );
 }

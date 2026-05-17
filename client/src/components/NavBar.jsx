@@ -54,13 +54,7 @@ export default function NavBar() {
 				</nav>
 
 				<div className="ml-auto flex items-center gap-3">
-					<Link
-						to="/settings"
-						className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-transparent text-[#4c4038] transition hover:bg-[#fff4ea] hover:text-[#111111]"
-						aria-label="Settings"
-					>
-						<Settings className="h-5 w-5" />
-					</Link>
+					
 
 					<details className="relative">
 						<summary className="flex list-none cursor-pointer items-center gap-3 rounded-full bg-transparent px-2 py-1.5 text-[#111111] transition hover:bg-[#fff4ea] [&::-webkit-details-marker]:hidden">

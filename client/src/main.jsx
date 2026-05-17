@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { PantryProvider } from './context/PantryContext';
 import './styles.css';
 import logoIcon from './assets/icon.png';
 
@@ -22,7 +23,9 @@ if (existingIcon) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <PantryProvider>
+        <App />
+      </PantryProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
