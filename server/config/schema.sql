@@ -10,6 +10,26 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+--user preferences table
+CREATE TABLE user_preferences (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL,
+
+    dietary_restrictions TEXT[] DEFAULT '{}',
+    allergies TEXT[] DEFAULT '{}',
+    preffered_cuisines TEXT[] DEFAULT '{}',
+
+    default_serving_size INTEGER DEFAULT 4,
+    measurement_units VARCHAR(20) DEFAULT 'metric',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_user_preferences_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
 --pantry table
 CREATE TABLE IF NOT EXISTS pantry_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
