@@ -1,7 +1,9 @@
-const path = require('path');
-const fs = require('fs/promises');
-const dotenv = require('dotenv');
-const { Pool } = require('pg');
+import path from 'path';
+import fs from 'fs/promises';
+import dotenv from 'dotenv';
+import pkg from 'pg';
+
+const { Pool } = pkg;
 
 dotenv.config();
 
@@ -23,7 +25,7 @@ async function runMigrations() {
     try {
         console.log('Running migrations...');
 
-        const schemaPath = path.join(__dirname, 'config', 'schema.sql');
+        const schemaPath = path.join(process.cwd(), 'config', 'schema.sql');
         const schemaSql = await fs.readFile(schemaPath, 'utf-8');
 
         await client.query(schemaSql);
