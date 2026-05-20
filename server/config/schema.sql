@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
 --user preferences table
 CREATE TABLE user_preferences (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER UNIQUE NOT NULL,
+    user_id UUID UNIQUE NOT NULL,
 
     dietary_restrictions TEXT[] DEFAULT '{}',
     allergies TEXT[] DEFAULT '{}',

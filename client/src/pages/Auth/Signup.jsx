@@ -1,7 +1,54 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import apiClient from '../../api/client';
 import signupBackground from '../../assets/brooke-lark-HlNcigvUi4Q-unsplash.jpg';
 
 export default function Signup() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      await apiClient.post('/auth/signup', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      navigate('/login');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to create account');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#fff8f0] text-[#111111]">
       <section className="relative isolate min-h-screen overflow-hidden">
@@ -44,13 +91,15 @@ export default function Signup() {
                 </p>
               </div>
 
-              <form className="space-y-5">
+              <form className="space-y-5" onSubmit={handleSubmit}>
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-[#4c4038]">Name</span>
                   <input
                     type="text"
                     name="name"
                     placeholder="Enter your name"
+                    value={formData.name}
+                    onChange={handleChange}
                     className="w-full rounded-xl border border-[#e6dacf] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                   />
                 </label>
@@ -61,6 +110,8 @@ export default function Signup() {
                     type="email"
                     name="email"
                     placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleChange}
                     className="w-full rounded-xl border border-[#e6dacf] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                   />
                 </label>
@@ -71,6 +122,8 @@ export default function Signup() {
                     type="password"
                     name="password"
                     placeholder="Create a password"
+                    value={formData.password}
+                    onChange={handleChange}
                     className="w-full rounded-xl border border-[#e6dacf] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                   />
                 </label>
@@ -81,15 +134,20 @@ export default function Signup() {
                     type="password"
                     name="confirmPassword"
                     placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
                     className="w-full rounded-xl border border-[#e6dacf] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                   />
                 </label>
 
+                {error ? <p className="text-sm text-[#b94d09]">{error}</p> : null}
+
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="inline-flex w-full items-center justify-center rounded-full bg-[#ff7a18] px-6 py-3.5 text-sm font-semibold text-[#111111] shadow-[0_18px_35px_rgba(255,122,24,0.28)] transition-transform hover:-translate-y-0.5"
                 >
-                  Create Account
+                  {isSubmitting ? 'Creating Account...' : 'Create Account'}
                 </button>
               </form>
 

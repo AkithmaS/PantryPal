@@ -6,7 +6,7 @@ class User{
     static async create(name,email,password){
         const hashedPassword = await bcrypt.hash(password, 10);
         const result = await db.query(
-            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *',
+            'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING *',
             [name, email, hashedPassword]
         );
         return result.rows[0];
@@ -49,7 +49,7 @@ static async update(id, updates) {
 static async updatePassword(id, newPassword) {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const result = await db.query(
-        'UPDATE users SET password = $1 WHERE id = $2 RETURNING *',
+        'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING *',
         [hashedPassword, id]
     );
     return result.rows[0];
