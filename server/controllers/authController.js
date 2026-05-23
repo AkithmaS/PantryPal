@@ -16,22 +16,20 @@ const generateToken = (user) => {
     );
 };
 
-// Register User
-export const register = async (req, res, next) => {
+// Signup User
+export const signup = async (req, res, next) => {
     try {
         const { email, password, name } = req.body;
 
         // Validation
-        if (!email || !password) {
+        if (!email || !password || !name) {
             return res.status(400).json({
-                message: 'Email and password are required'
+                message: 'Name, email, and password are required'
             });
         }
 
         // Check existing user
-        const existingUser = await User.findOne({
-            where: { email }
-        });
+        const existingUser = await User.findByEmail(email);
 
         if (existingUser) {
             return res.status(400).json({
@@ -40,19 +38,14 @@ export const register = async (req, res, next) => {
         }
 
         // Create user
-        const user = await User.create({
-            email,
-            password,
-            name
-        });
+        const user = await User.create(name, email, password);
 
         // Create default preferences
-        await UserPreferences.create({
-            userId: user.id,
+        await UserPreferences.upsert(user.id, {
             dietary_restrictions: [],
-            cuisine_preferences: [],
             allergies: [],
-            default_servings: 4,
+            preffered_cuisines: [],
+            default_serving_size: 4,
             measurement_units: 'metric'
         });
 
@@ -62,7 +55,7 @@ export const register = async (req, res, next) => {
         // Response
         res.status(201).json({
             success: true,
-            message: 'User registered successfully',
+            message: 'User signed up successfully',
             data: {
                 user: {
                     id: user.id,
@@ -91,9 +84,7 @@ export const login = async (req, res, next) => {
         }
 
         // Find user
-        const user = await User.findOne({
-            where: { email }
-        });
+        const user = await User.findByEmail(email);
 
         if (!user) {
             return res.status(401).json({
@@ -102,7 +93,7 @@ export const login = async (req, res, next) => {
         }
 
         // Check password
-        const isPasswordMatch = await user.validPassword(password);
+        const isPasswordMatch = await User.verifyPassword(password, user.password_hash);
 
         if (!isPasswordMatch) {
             return res.status(401).json({
@@ -135,7 +126,7 @@ export const login = async (req, res, next) => {
 // Get Current User
 export const getCurrentUser = async (req, res, next) => {
     try {
-        const user = await User.findByPk(req.user.id);
+        const user = await User.findById(req.user.id);
 
         if (!user) {
             return res.status(404).json({
@@ -170,9 +161,7 @@ export const resetPassword = async (req, res, next) => {
             });
         }
 
-        const user = await User.findOne({
-            where: { email }
-        });
+        await User.findByEmail(email);
 
         // Normally send email here
 

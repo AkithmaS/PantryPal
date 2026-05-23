@@ -4,7 +4,10 @@ import UserPreferences from '../models/UserPreferences.js';
 // Get User Profile
 export const getProfile = async (req, res, next) => {
     try {
-        const user = await User.findByPk(req.user.id);
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
         const preferences = await UserPreferences.findByUserId(req.user.id);
 
         res.json({
@@ -25,12 +28,10 @@ export const updateProfile = async (req, res, next) => {
     try {
         const { name, email } = req.body;
 
-        const user = await User.findByPk(req.user.id);
-
-        await user.update({
-            name,
-            email
-        });
+        const user = await User.update(req.user.id, { name, email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
         res.json({
             success: true,
@@ -46,9 +47,7 @@ export const updateProfile = async (req, res, next) => {
 // Update Preferences
 export const updatePreferences = async (req, res, next) => {
     try {
-        const preferences = await UserPreferences.findByUserId(req.user.id);
-
-        await preferences.update(req.body);
+        const preferences = await UserPreferences.upsert(req.user.id, req.body);
 
         res.json({
             success: true,
@@ -73,9 +72,12 @@ export const changePassword = async (req, res, next) => {
         }
 
         // Verify current password
-        const user = await User.findByPk(req.user.id);
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-        const isMatch = await user.validatePassword(currentPassword);
+        const isMatch = await User.verifyPassword(currentPassword, user.password_hash);
 
         if (!isMatch) {
             return res.status(400).json({
@@ -84,9 +86,7 @@ export const changePassword = async (req, res, next) => {
         }
 
         // Update password
-        await user.update({
-            password: newPassword
-        });
+        await User.updatePassword(req.user.id, newPassword);
 
         res.json({
             success: true,
@@ -101,9 +101,13 @@ export const changePassword = async (req, res, next) => {
 // Delete Account
 export const deleteAccount = async (req, res, next) => {
     try {
-        const user = await User.findByPk(req.user.id);
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-        await user.destroy();
+        await UserPreferences.deleteByUserId(req.user.id);
+        await User.delete(req.user.id);
 
         res.json({
             success: true,

@@ -1,7 +1,56 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import apiClient from '../../api/client';
 import loginBackground from '../../assets/brooke-lark-HlNcigvUi4Q-unsplash.jpg';
 
 export default function Login() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await apiClient.post('/auth/login', {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const token = response?.data?.data?.token;
+      if (token) {
+        localStorage.setItem('pantrypal_token', token);
+      }
+
+      navigate('/dashboard');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to sign in');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#fff8f0] text-[#111111]">
       <section className="relative isolate min-h-screen overflow-hidden">
@@ -44,13 +93,15 @@ export default function Login() {
                 </p>
               </div>
 
-              <form className="space-y-5">
+              <form className="space-y-5" onSubmit={handleSubmit}>
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-[#4c4038]">Email</span>
                   <input
                     type="email"
                     name="email"
                     placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleChange}
                     className="w-full rounded-xl border border-[#e6dacf] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                   />
                 </label>
@@ -61,6 +112,8 @@ export default function Login() {
                     type="password"
                     name="password"
                     placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
                     className="w-full rounded-xl border border-[#e6dacf] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                   />
                 </label>
@@ -74,11 +127,14 @@ export default function Login() {
                   </Link>
                 </div>
 
+                {error ? <p className="text-sm text-[#b94d09]">{error}</p> : null}
+
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="inline-flex w-full items-center justify-center rounded-full bg-[#ff7a18] px-6 py-3.5 text-sm font-semibold text-[#111111] shadow-[0_18px_35px_rgba(255,122,24,0.28)] transition-transform hover:-translate-y-0.5"
                 >
-                  Sign In
+                  {isSubmitting ? 'Signing in...' : 'Sign In'}
                 </button>
               </form>
 
