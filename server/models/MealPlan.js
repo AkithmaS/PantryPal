@@ -4,7 +4,7 @@ class MealPlan {
     // add recipe to meal plan
     static async addRecipe(userId, mealData) {
         const { recipe_id, meal_date, meal_type } = mealData;
-        const date = meal_date || planned_date;
+        const date = meal_date;
 
         const result = await db.query(
             `INSERT INTO meal_plans (user_id, recipe_id, meal_date, meal_type) VALUES ($1, $2, $3, $4) 
