@@ -1,39 +1,57 @@
-import { param } from 'framer-motion/client';
 import db from '../config/db.js';
 class PantryItem {
-    static async create(userId,itemData) {
-        const {name, quantity, unit, categgory, expiry_date, is_running_low} = itemData;
-        const [result] = await db.query(
-            'INSERT INTO pantry_items (user_id, name, quantity, unit, category, expiry_date, is_running_low) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [userId, name, quantity, unit, categgory, expiry_date, is_running_low]
+    static async create(userId, itemData) {
+        const {
+            name,
+            quantity,
+            unit,
+            category,
+            expiration_date,
+            is_running_low
+        } = itemData;
+
+        const result = await db.query(
+            `INSERT INTO pantry_items (user_id, name, quantity, unit, category, expiration_date, is_running_low)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING *`,
+            [
+                userId,
+                name,
+                quantity,
+                unit,
+                category,
+                expiration_date,
+                is_running_low
+            ]
         );
+
         return result.rows[0];
     }
         //get all pantry items for a user
          static async getAllByUserId(userId, filters = {}) {
-            let query = 'SELECT * FROM pantry_items WHERE user_id = ?';
+            let query = 'SELECT * FROM pantry_items WHERE user_id = $1';
             const params = [userId];
-            let paramCount =1;
+            let paramIndex = 2;
 
             if (filters.category) {
-                paramCount++;
-                query += ` AND category = ?`;
+                query += ` AND category = $${paramIndex}`;
                 params.push(filters.category);
+                paramIndex++;
             }
 
             if (filters.is_running_low !== undefined) {
-                paramCount++;
-                query += ` AND is_running_low = ?`;
+                query += ` AND is_running_low = $${paramIndex}`;
                 params.push(filters.is_running_low);
+                paramIndex++;
             }
 
-            if(filters.search) {
-                paramCount++;
-                query += ` AND name LIKE ?`;
+            if (filters.search) {
+                query += ` AND name ILIKE $${paramIndex}`;
                 params.push(`%${filters.search}%`);
+                paramIndex++;
             }
 
-            query += ' ORDER BY created_at DESC ';
+            query += ' ORDER BY created_at DESC';
 
             const results = await db.query(query, params);
             return results.rows;
@@ -41,8 +59,12 @@ class PantryItem {
 
         //get items expiring soon(within 7 days)
         static async getExpiringSoon(userId, days = 7) {
-            const [result] = await db.query(
-                `SELECT * FROM pantry_items WHERE user_id = ? AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY) AND expiry_date >= CURDATE() ORDER BY expiry_date ASC`,
+            const result = await db.query(
+                `SELECT * FROM pantry_items
+                 WHERE user_id = $1
+                   AND expiration_date <= CURRENT_DATE + ($2 || ' days')::interval
+                   AND expiration_date >= CURRENT_DATE
+                 ORDER BY expiration_date ASC`,
                 [userId, days]
             );
             return result.rows;
@@ -50,8 +72,8 @@ class PantryItem {
 
         //get pantry items by ID
         static async getById(userId, itemId) {
-            const [result] = await db.query(
-                'SELECT * FROM pantry_items WHERE user_id = ? AND id = ?',
+            const result = await db.query(
+                'SELECT * FROM pantry_items WHERE user_id = $1 AND id = $2',
                 [userId, itemId]
             );
             return result.rows[0];
@@ -59,18 +81,42 @@ class PantryItem {
 
         //update pantry item
         static async update(userId, itemId, itemData) {
-            const {name, quantity, unit, category, expiry_date, is_running_low} = itemData;
-            const [result] = await db.query(
-                'UPDATE pantry_items SET name = ?, quantity = ?, unit = ?, category = ?, expiry_date = ?, is_running_low = ? WHERE user_id = ? AND id = ? RETURNING *',
-                [name, quantity, unit, category, expiry_date, is_running_low, userId, itemId]
+            const {
+                name,
+                quantity,
+                unit,
+                category,
+                expiration_date,
+                is_running_low
+            } = itemData;
+            const result = await db.query(
+                `UPDATE pantry_items
+                 SET name = $1,
+                     quantity = $2,
+                     unit = $3,
+                     category = $4,
+                     expiration_date = $5,
+                     is_running_low = $6
+                 WHERE user_id = $7 AND id = $8
+                 RETURNING *`,
+                [
+                    name,
+                    quantity,
+                    unit,
+                    category,
+                    expiration_date,
+                    is_running_low,
+                    userId,
+                    itemId
+                ]
             );
             return result.rows[0];
         }
 
         //delete pantry item
         static async delete(userId, itemId) {
-            const [result] = await db.query(
-                'DELETE FROM pantry_items WHERE user_id = ? AND id = ? RETURNING *',
+            const result = await db.query(
+                'DELETE FROM pantry_items WHERE user_id = $1 AND id = $2 RETURNING *',
                 [userId, itemId]
             );
             return result.rows[0];
@@ -78,13 +124,13 @@ class PantryItem {
 
         //get pantry statistics
         static async getStatistics(userId) {
-            const [result] = await db.query(
+            const result = await db.query(
                 `SELECT 
-                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = ?) AS total_items,
-                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = ? AND is_running_low = true) AS low_stock_items,
-                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = ? AND expiry_date <= CURDATE()) AS expired_items,
-                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = ? AND expiry_date > CURDATE() AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)) AS expiring_soon_items`,
-                [userId, userId, userId, userId]
+                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = $1) AS total_items,
+                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = $1 AND is_running_low = true) AS low_stock_items,
+                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = $1 AND expiration_date <= CURRENT_DATE) AS expired_items,
+                    (SELECT COUNT(*) FROM pantry_items WHERE user_id = $1 AND expiration_date > CURRENT_DATE AND expiration_date <= CURRENT_DATE + INTERVAL '7 days') AS expiring_soon_items`,
+                [userId]
             );
             return result.rows[0];
         }

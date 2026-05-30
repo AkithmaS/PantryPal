@@ -17,7 +17,7 @@ class MealPlan {
 
     static async findDateRange(userId, startDate, endDate) {
         const result = await db.query(
-            `SELECT mp.*, r.title, r.image_url FROM meal_plans mp 
+            `SELECT mp.*, r.name AS title, r.image_url FROM meal_plans mp 
             JOIN recipes r ON mp.recipe_id = r.id 
             WHERE mp.user_id = $1 AND mp.meal_date BETWEEN $2 AND $3
             ORDER BY mp.meal_date ASC, 
@@ -41,7 +41,7 @@ class MealPlan {
     //get upcoming meal plan for a user(next 7 days )
     static async getUpcomingPlan(userId, limit =5) {
         const result = await db.query(
-            `SELECT mp.*, r.title, r.image_url FROM meal_plans mp 
+            `SELECT mp.*, r.name AS title, r.image_url FROM meal_plans mp 
             JOIN recipes r ON mp.recipe_id = r.id
             WHERE mp.user_id = $1 AND mp.meal_date >= CURRENT_DATE
             ORDER BY mp.meal_date ASC, 

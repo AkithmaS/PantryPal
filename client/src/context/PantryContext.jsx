@@ -1,64 +1,66 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import apiClient from '../api/client.js';
 
 const PantryContext = createContext(null);
 
-const initialItems = [
-  {
-    id: 1,
-    name: 'Strawberries',
-    category: 'Fruits',
-    quantity: '250.00 grams',
-    expiryDate: '2026-05-12',
-  },
-  {
-    id: 2,
-    name: 'Coconut Milk',
-    category: 'Other',
-    quantity: '400.00 ml',
-    expiryDate: '2026-05-18',
-  },
-  {
-    id: 3,
-    name: 'Chickpeas',
-    category: 'Grains',
-    quantity: '1.00 can',
-    expiryDate: '2026-05-19',
-  },
-  {
-    id: 4,
-    name: 'Canned Tomatoes',
-    category: 'Other',
-    quantity: '2.00 cans',
-    expiryDate: '2026-05-21',
-  },
-  {
-    id: 5,
-    name: 'Mayonnaise',
-    category: 'Dairy',
-    quantity: '300.00 ml',
-    expiryDate: '2026-05-17',
-  },
-  {
-    id: 6,
-    name: 'Ketchup',
-    category: 'Spices',
-    quantity: '400.00 ml',
-    expiryDate: '2026-06-10',
-  },
-];
+const normalizeItem = (item) => ({
+  id: item.id,
+  name: item.name,
+  category: item.category,
+  quantity: item.quantity,
+  unit: item.unit,
+  expiration_date: item.expiration_date,
+  is_running_low: item.is_running_low,
+});
 
 export function PantryProvider({ children }) {
-  const [items, setItems] = useState(initialItems);
+  const [items, setItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchItems = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const response = await apiClient.get('/pantry');
+      const data = response?.data?.data || [];
+      setItems(data.map(normalizeItem));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to load pantry items');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
 
   const value = useMemo(
     () => ({
       items,
       setItems,
-      addItem: (item) => setItems((current) => [...current, item]),
-      addItems: (newItems) => setItems((current) => [...current, ...newItems]),
-      removeItem: (itemId) => setItems((current) => current.filter((item) => item.id !== itemId)),
+      isLoading,
+      error,
+      refreshItems: fetchItems,
+      addItem: async (payload) => {
+        const response = await apiClient.post('/pantry', payload);
+        const created = normalizeItem(response?.data?.data);
+        setItems((current) => [created, ...current]);
+        return created;
+      },
+      removeItem: async (itemId) => {
+        await apiClient.delete(`/pantry/${itemId}`);
+        setItems((current) => current.filter((item) => item.id !== itemId));
+      },
+      updateItem: async (itemId, payload) => {
+        const response = await apiClient.put(`/pantry/${itemId}`, payload);
+        const updated = normalizeItem(response?.data?.data);
+        setItems((current) => current.map((item) => (item.id === itemId ? updated : item)));
+        return updated;
+      },
     }),
-    [items]
+    [items, isLoading, error]
   );
 
   return <PantryContext.Provider value={value}>{children}</PantryContext.Provider>;

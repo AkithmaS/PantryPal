@@ -8,6 +8,9 @@ export default function PantryAddItem({
 	formData,
 	onChange,
 	categories,
+	title = 'Add Pantry Item',
+	subtitle = 'Keep your pantry list organized and up to date.',
+	submitLabel = 'Add Item',
 }) {
 	if (!isOpen) {
 		return null;
@@ -31,9 +34,9 @@ export default function PantryAddItem({
 				<div className="flex items-start justify-between border-b border-[#ead9c7] px-6 py-5 sm:px-8">
 					<div>
 						<h2 className="font-display text-2xl font-semibold text-[#111111] sm:text-3xl">
-							Add Pantry Item
+							{title}
 						</h2>
-						<p className="mt-1 text-sm text-[#6e6258]">Keep your pantry list organized and up to date.</p>
+						<p className="mt-1 text-sm text-[#6e6258]">{subtitle}</p>
 					</div>
 
 					<button
@@ -150,7 +153,7 @@ export default function PantryAddItem({
 							className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_30px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5"
 						>
 							<Plus className="h-4 w-4" />
-							Add Item
+							{submitLabel}
 						</button>
 					</div>
 				</form>

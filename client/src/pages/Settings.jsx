@@ -9,6 +9,7 @@ import {
   LoaderCircle,
   UserRound,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const pageFade = {
   hidden: { opacity: 0, y: 18 },
@@ -22,11 +23,6 @@ const stagger = {
 
 const inputBaseClass =
   'w-full rounded-2xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition duration-300 placeholder:text-[#a69a8f] focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15';
-
-const initialProfile = {
-  name: 'Akithma',
-  email: 'akithma@pantrypal.com',
-};
 
 function FormButton({ children, isLoading, onClick, type = 'button', isPrimary = false, icon: Icon, className = '' }) {
   return (
@@ -124,7 +120,8 @@ function PasswordField({ label, name, value, onChange, visible, onToggleVisible,
 }
 
 export default function Settings() {
-  const [profileForm, setProfileForm] = useState(initialProfile);
+  const { user } = useAuth();
+  const [profileForm, setProfileForm] = useState({ name: '', email: '' });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -135,6 +132,13 @@ export default function Settings() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswords, setShowPasswords] = useState({ currentPassword: false, newPassword: false, confirmNewPassword: false });
+
+  useEffect(() => {
+    setProfileForm({
+      name: user?.name || '',
+      email: user?.email || '',
+    });
+  }, [user]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -244,7 +248,7 @@ export default function Settings() {
                     name="name"
                     value={profileForm.name}
                     onChange={handleProfileChange}
-                    placeholder="Akithma"
+                    placeholder="Enter your name"
                     className={inputBaseClass}
                   />
                 </label>
@@ -256,7 +260,7 @@ export default function Settings() {
                     name="email"
                     value={profileForm.email}
                     onChange={handleProfileChange}
-                    placeholder="name@pantrypal.com"
+                    placeholder="Enter your email"
                     className={inputBaseClass}
                   />
                 </label>

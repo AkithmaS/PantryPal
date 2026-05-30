@@ -11,6 +11,7 @@ import {
   TimerReset,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext.jsx';
 import dashboardBackground from '../assets/screen.png';
 import recentRecipeOne from '../assets/recentrecipe1.png';
 import recentRecipeTwo from '../assets/meal2.jpg';
@@ -81,7 +82,6 @@ const heroMetrics = [
   { value: '12', label: 'Recipes ready to review', icon: ScanSearch },
 ];
 
-const displayName = 'Akithma';
 
 function StatBar({ label, value, tone }) {
   return (
@@ -149,6 +149,9 @@ function RecentRecipeCard({ image, title, meta }) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const displayName = user?.name || user?.email;
+
   return (
     <div className="bg-[#fffaf4]">
       <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -176,7 +179,13 @@ export default function Dashboard() {
                 variants={fadeUp}
                 className="mt-6 font-display text-4xl font-semibold tracking-tight text-[#111111] sm:text-5xl lg:text-6xl"
               >
-                Welcome, <span className="text-[#d45d10]">{displayName}</span>.
+                {displayName ? (
+                  <>
+                    Welcome, <span className="text-[#d45d10]">{displayName}</span>.
+                  </>
+                ) : (
+                  'Welcome back.'
+                )}
               </motion.h1>
 
               <motion.p variants={fadeUp} className="mt-6 max-w-xl text-lg leading-8 text-[#594f46] sm:text-xl">
