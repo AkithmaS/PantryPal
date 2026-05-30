@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import apiClient from '../../api/client.js';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 22 },
@@ -25,102 +26,21 @@ const stagger = {
 };
 
 const dietOptions = ['None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Keto', 'Paleo'];
-const cuisineOptions = ['Italian', 'Mexican', 'Mediterranean', 'Asian', 'American'];
+const cuisineOptions = ['Italian', 'Mexican', 'Sri Lankan', 'Indian', 'Chineese', 'Thai', 'French', 'Japanese','Korean', 'Middle Eastern'];
+const cookingTimeOptions = [
+  { value: 'any', label: 'Any' },
+  { value: 'short', label: 'Under 30 mins' },
+  { value: 'medium', label: '30-60 mins' },
+  { value: 'long', label: 'Over 60 mins' },
+];
 
-const defaultIngredients = ['tomato'];
+const defaultIngredients = [];
 
-const recipeTemplates = {
-  Italian: {
-    title: 'Herbed Tomato & Garlic Poach',
-    chips: ['Italian-Fusion', 'Vegetarian'],
-    meta: ['15 mins', '2 Servings', '340 kcal'],
-    ingredients: ['4 Large Organic Eggs', '2 Cloves Garlic, minced', '3 Ripe Vine Tomatoes', '1 tbsp Olive Oil'],
-    instructions: [
-      'Sauté the minced garlic in olive oil over medium heat until fragrant and slightly golden.',
-      'Add chopped tomatoes and a pinch of salt. Cook until they break down into a thick sauce.',
-      'Make four small wells in the sauce and crack an egg into each. Cover and simmer until set.',
-    ],
-    nutrition: [
-      { label: 'Protein', value: '24g' },
-      { label: 'Carbs', value: '18g' },
-      { label: 'Fat', value: '21g' },
-      { label: 'Fiber', value: '6g' },
-    ],
-  },
-  Mexican: {
-    title: 'Smoky Tomato Skillet Eggs',
-    chips: ['Mexican', 'High-Protein'],
-    meta: ['20 mins', '4 Servings', '310 kcal'],
-    ingredients: ['4 Eggs', '2 Tomatoes, chopped', '1 clove Garlic', '1 tsp Olive Oil'],
-    instructions: [
-      'Warm the oil with garlic until fragrant, then add chopped tomatoes.',
-      'Season with salt and smoked spice, then simmer into a chunky sauce.',
-      'Crack eggs into wells, cover, and cook until the whites are set.',
-    ],
-    nutrition: [
-      { label: 'Protein', value: '23g' },
-      { label: 'Carbs', value: '14g' },
-      { label: 'Fat', value: '19g' },
-      { label: 'Fiber', value: '5g' },
-    ],
-  },
-  Mediterranean: {
-    title: 'Garden Herb Egg Stew',
-    chips: ['Mediterranean', 'Vegetarian'],
-    meta: ['18 mins', '3 Servings', '290 kcal'],
-    ingredients: ['3 Eggs', '2 Tomatoes', '1 Garlic Clove', '1 tbsp Olive Oil'],
-    instructions: [
-      'Build a garlic base in olive oil, then soften the tomatoes with a little salt.',
-      'Add herbs and simmer until the sauce turns glossy and rich.',
-      'Poach the eggs directly in the sauce and serve once set.',
-    ],
-    nutrition: [
-      { label: 'Protein', value: '21g' },
-      { label: 'Carbs', value: '12g' },
-      { label: 'Fat', value: '18g' },
-      { label: 'Fiber', value: '7g' },
-    ],
-  },
-  Asian: {
-    title: 'Ginger Garlic Tomato Bowl',
-    chips: ['Asian', 'Balanced'],
-    meta: ['17 mins', '2 Servings', '320 kcal'],
-    ingredients: ['4 Eggs', '2 Tomatoes', '1 tsp Ginger', '1 clove Garlic'],
-    instructions: [
-      'Cook garlic and ginger until aromatic, then fold in the tomatoes.',
-      'Reduce to a jammy sauce, add seasoning, and keep the pan on medium-low.',
-      'Add eggs, cover, and finish until softly set.',
-    ],
-    nutrition: [
-      { label: 'Protein', value: '22g' },
-      { label: 'Carbs', value: '16g' },
-      { label: 'Fat', value: '17g' },
-      { label: 'Fiber', value: '4g' },
-    ],
-  },
-  American: {
-    title: 'Rustic Tomato Breakfast Skillet',
-    chips: ['American', 'Comfort Food'],
-    meta: ['22 mins', '4 Servings', '360 kcal'],
-    ingredients: ['4 Eggs', '3 Tomatoes', '2 Garlic Cloves', '1 tbsp Olive Oil'],
-    instructions: [
-      'Sauté garlic, then add tomatoes and simmer until thickened.',
-      'Create wells for the eggs and cook until the yolks are still soft.',
-      'Finish with herbs and a little black pepper before serving.',
-    ],
-    nutrition: [
-      { label: 'Protein', value: '25g' },
-      { label: 'Carbs', value: '19g' },
-      { label: 'Fat', value: '23g' },
-      { label: 'Fiber', value: '6g' },
-    ],
-  },
-};
 
 function SectionTitle({ eyebrow, title, description }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#3f725d]">{eyebrow}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#d45d10]">{eyebrow}</p>
       <h2 className="mt-3 font-display text-3xl font-semibold text-[#111111] sm:text-[2rem]">{title}</h2>
       {description ? <p className="mt-3 max-w-2xl text-sm leading-7 text-[#5d5148] sm:text-base">{description}</p> : null}
     </div>
@@ -164,13 +84,31 @@ export default function AIGenerator() {
   const [usePantryIngredients, setUsePantryIngredients] = useState(true);
   const [ingredientText, setIngredientText] = useState('');
   const [ingredients, setIngredients] = useState(defaultIngredients);
-  const [dietaryRestriction, setDietaryRestriction] = useState('Vegetarian');
-  const [cuisine, setCuisine] = useState('Mexican');
+  const [dietaryRestriction, setDietaryRestriction] = useState('None');
+  const [cuisine, setCuisine] = useState('');
+  const [cookingTime, setCookingTime] = useState('any');
   const [servings, setServings] = useState(4);
   const [generatedRecipe, setGeneratedRecipe] = useState(null);
+  const [generatedSource, setGeneratedSource] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
+
+  useEffect(() => {
+    if (!saveSuccess) {
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setSaveSuccess('');
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [saveSuccess]);
 
   const canAddIngredient = useMemo(() => ingredientText.trim().length > 0, [ingredientText]);
-  const cuisinePreset = recipeTemplates[cuisine] ?? recipeTemplates.Italian;
 
   const addIngredient = () => {
     const nextIngredient = ingredientText.trim();
@@ -195,19 +133,141 @@ export default function AIGenerator() {
     );
   };
 
-  const handleGenerate = () => {
-    const selectedIngredients = usePantryIngredients ? ingredients : [];
+  const handleGenerate = async () => {
+    try {
+      setIsGenerating(true);
+      setGenerateError('');
 
-    setGeneratedRecipe({
-      title: cuisinePreset.title,
-      chips: cuisinePreset.chips,
-      meta: cuisinePreset.meta,
-      ingredients: selectedIngredients.length > 0 ? selectedIngredients : cuisinePreset.ingredients,
-      instructions: cuisinePreset.instructions,
-      nutrition: cuisinePreset.nutrition,
-      summary:
-        `A ${dietaryRestriction.toLowerCase()} ${cuisine.toLowerCase()} recipe built for ${servings} servings using PantryPal colors and a clean, calm layout.`,
-    });
+      const dietaryPreferences = dietaryRestriction === 'None' ? [] : [dietaryRestriction];
+      const response = await apiClient.post('/recipes/generate', {
+        ingredients,
+        usePantryIngredients,
+        dietaryPreferences,
+        cuisineType: cuisine,
+        servingSize: servings,
+        cookingTime,
+      });
+
+      const recipe = response?.data?.data?.recipe;
+      if (!recipe) {
+        throw new Error('No recipe returned');
+      }
+
+      const formattedIngredients = (recipe.ingredients || []).map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+        const quantity = item.quantity ? String(item.quantity) : '';
+        const unit = item.unit ? String(item.unit) : '';
+        return [quantity, unit, item.name].filter(Boolean).join(' ').trim();
+      });
+
+      const nutritionInfo = recipe.nutritionalInfo || {};
+      const nutrition = [
+        nutritionInfo.protein ? { label: 'Protein', value: `${nutritionInfo.protein}g` } : null,
+        nutritionInfo.carbohydrates ? { label: 'Carbs', value: `${nutritionInfo.carbohydrates}g` } : null,
+        nutritionInfo.fat ? { label: 'Fat', value: `${nutritionInfo.fat}g` } : null,
+        nutritionInfo.fiber ? { label: 'Fiber', value: `${nutritionInfo.fiber}g` } : null,
+      ].filter(Boolean);
+
+      const meta = [
+        recipe.cookTime ? `${recipe.cookTime} mins` : 'Cook time varies',
+        `${recipe.servingSize || servings} Servings`,
+        nutritionInfo.calories ? `${nutritionInfo.calories} kcal` : 'Calories N/A',
+      ];
+
+      const badges = [
+        recipe.cuisineType ? { label: recipe.cuisineType, tone: 'cuisine' } : null,
+        recipe.difficulty ? { label: recipe.difficulty, tone: 'difficulty' } : null,
+        ...(recipe.dietaryInfo || []).map((item) => ({ label: item, tone: 'dietary' })),
+      ].filter(Boolean);
+
+      setGeneratedRecipe({
+        title: recipe.name || 'Generated Recipe',
+        meta,
+        badges,
+        ingredients: formattedIngredients,
+        instructions: recipe.instructions || [],
+        nutrition,
+        summary: recipe.description || 'A recipe generated from your pantry preferences.',
+        cookingTips: recipe.cookingTips || [],
+      });
+      setGeneratedSource(recipe);
+      setSaveError('');
+      setSaveSuccess('');
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Unable to generate recipe. Please try again.';
+      setGenerateError(message);
+      setGeneratedRecipe(null);
+      setGeneratedSource(null);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!generatedSource) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError('');
+      setSaveSuccess('');
+
+      const nutrition = generatedSource.nutritionalInfo || {};
+
+      // Normalize ingredients: backend expects objects with a `name` (and optional quantity/unit)
+      const normalizedIngredients = (generatedSource.ingredients || []).map((ing) => {
+        if (!ing) return null;
+        if (typeof ing === 'string') return { name: ing };
+        // If it's an object, ensure it has a name property
+        return { name: ing.name || String(ing), quantity: ing.quantity, unit: ing.unit };
+      }).filter(Boolean);
+
+      // Ensure instructions is an array (backend requires instructions)
+      const instructionsPayload = Array.isArray(generatedSource.instructions)
+        ? generatedSource.instructions
+        : generatedSource.instructions
+        ? [generatedSource.instructions]
+        : [];
+
+      const payload = {
+        name: generatedSource.name,
+        description: generatedSource.description,
+        cuisine_type: generatedSource.cuisineType,
+        difficulty: generatedSource.difficulty,
+        preparation_time: Number(generatedSource.prepTime) || null,
+        cooking_time: Number(generatedSource.cookTime) || null,
+        servings: generatedSource.servingSize || servings,
+        dietary_tags: generatedSource.dietaryInfo || [],
+        instructions: instructionsPayload,
+        ingredients: normalizedIngredients,
+        nutrition: {
+          calories: nutrition.calories,
+          carbohydrates: nutrition.carbohydrates,
+          protein: nutrition.protein,
+          fiber: nutrition.fiber,
+          fat: nutrition.fat,
+        },
+      };
+
+      await apiClient.post('/recipes', payload);
+      setSaveSuccess('Recipe saved successfully.');
+    } catch (error) {
+      console.error('Save recipe error:', error);
+      const status = error?.response?.status;
+      const serverMsg = error?.response?.data?.message;
+      const serverData = error?.response?.data;
+      const message = serverMsg || (serverData ? JSON.stringify(serverData) : null) || 'Unable to save recipe. Please try again.';
+      if (status === 401) {
+        setSaveError('You must be logged in to save recipes. Please sign in.');
+      } else {
+        setSaveError(message);
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -219,6 +279,11 @@ export default function AIGenerator() {
         </div>
 
         <div className="relative mx-auto w-full max-w-7xl">
+          {saveSuccess ? (
+            <div className="mb-4 rounded-2xl border border-[#f3e1cf] bg-[#fff4ea] px-4 py-3 text-sm font-medium text-[#6a4321] shadow-[0_8px_18px_rgba(17,17,17,0.03)]" aria-live="polite">
+              Recipe saved to your collection!
+            </div>
+          ) : null}
           <motion.div
             initial="hidden"
             animate="visible"
@@ -251,7 +316,7 @@ export default function AIGenerator() {
                         type="checkbox"
                         checked={usePantryIngredients}
                         onChange={(event) => setUsePantryIngredients(event.target.checked)}
-                        className="h-5 w-5 rounded border-[#ff7a18] text-[#ff7a18] focus:ring-[#ff7a18]"
+                        className="h-5 w-5 rounded border-[#ff7a18] text-[#a6a6ad] focus:ring-[#ff7a18]"
                       />
                       <span>Use ingredients from my pantry</span>
                     </label>
@@ -326,6 +391,9 @@ export default function AIGenerator() {
                             onChange={(event) => setCuisine(event.target.value)}
                             className="h-14 w-full appearance-none rounded-2xl border border-[#d7d7de] bg-white px-4 pr-11 text-base text-[#111111] outline-none transition focus:border-[#d45d10] focus:ring-4 focus:ring-[#ff7a18]/10"
                           >
+                            <option value="" disabled>
+                              Select cuisine
+                            </option>
                             {cuisineOptions.map((option) => (
                               <option key={option} value={option}>
                                 {option}
@@ -347,13 +415,34 @@ export default function AIGenerator() {
                               className={[
                                 'rounded-full px-4 py-2 text-sm font-medium transition',
                                 dietaryRestriction === option
-                                  ? 'bg-[#ff7a18] text-[#111111] shadow-[0_12px_24px_rgba(255,122,24,0.24)]'
-                                  : 'bg-[#f3f3f5] text-[#2b2b31] hover:bg-[#edf8f2]',
+                                  ? 'border border-[#ff7a18] bg-[#fff4ea] text-[#6a4321] shadow-[0_10px_20px_rgba(255,122,24,0.16)]'
+                                  : 'border border-transparent bg-[#fff4ea] text-[#6a4321] hover:border-[#ff7a18]/40 hover:bg-[#ffe9d4]',
                               ].join(' ')}
                             >
                               {option}
                             </button>
                           ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="cooking-time-select" className="mb-2 block text-sm text-[#4c4038]">
+                          Cooking Time
+                        </label>
+                        <div className="relative">
+                          <select
+                            id="cooking-time-select"
+                            value={cookingTime}
+                            onChange={(event) => setCookingTime(event.target.value)}
+                            className="h-14 w-full appearance-none rounded-2xl border border-[#d7d7de] bg-white px-4 pr-11 text-base text-[#111111] outline-none transition focus:border-[#d45d10] focus:ring-4 focus:ring-[#ff7a18]/10"
+                          >
+                            {cookingTimeOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7c7c85]" />
                         </div>
                       </div>
 
@@ -381,11 +470,16 @@ export default function AIGenerator() {
                     whileHover={{ y: -2, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleGenerate}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#ff7a18] px-6 py-4 text-sm font-semibold text-[#111111] shadow-[0_18px_35px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#ff7a18] px-6 py-4 text-sm font-semibold text-[#111111] shadow-[0_18px_35px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={isGenerating}
                   >
-                    Generate Recipe
+                    {isGenerating ? 'Generating...' : 'Generate Recipe'}
                     <ArrowRight className="h-4 w-4" />
                   </motion.button>
+
+                  {generateError ? (
+                    <p className="text-xs font-medium text-[#c64545]">{generateError}</p>
+                  ) : null}
 
                   <p className="text-xs leading-6 text-[#6e6258]">
                     Pantry mode is {usePantryIngredients ? 'on' : 'off'}. Selected cuisine is {cuisine}, with {dietaryRestriction.toLowerCase()} preferences and {servings} servings.
@@ -401,30 +495,39 @@ export default function AIGenerator() {
               <div className="flex min-h-full flex-col px-5 py-5 sm:px-6 sm:py-6">
                 {generatedRecipe ? (
                   <div className="flex h-full flex-1 flex-col">
-                    <div className="flex flex-wrap gap-2">
-                      {generatedRecipe.chips.map((chip) => (
-                        <span
-                          key={chip}
-                          className="rounded-full bg-[#3f725d] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_10px_24px_rgba(17,17,17,0.08)]"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-
                     <h2 className="mt-5 font-display text-4xl font-semibold tracking-tight text-[#111111]">
                       {generatedRecipe.title}
                     </h2>
+
+                    <p className="mt-4 max-w-2xl text-sm leading-7 text-[#5d5148]">
+                      {generatedRecipe.summary}
+                    </p>
+
+                    {generatedRecipe.badges.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-sm font-medium">
+                        {generatedRecipe.badges.map((badge) => (
+                          <span
+                            key={`${badge.tone}-${badge.label}`}
+                            className={[
+                              'rounded-full px-3 py-1.5',
+                              badge.tone === 'cuisine'
+                                ? 'bg-[#e6f7f1] text-[#1d6b52]'
+                                : badge.tone === 'difficulty'
+                                  ? 'bg-[#e7efff] text-[#2f5bb8]'
+                                  : 'bg-[#efe7ff] text-[#6a3ec5]',
+                            ].join(' ')}
+                          >
+                            {badge.label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
 
                     <div className="mt-4 flex flex-wrap gap-2 text-sm text-[#6e6258]">
                       <DetailChip icon={Clock3} label={generatedRecipe.meta[0]} />
                       <DetailChip icon={Users} label={generatedRecipe.meta[1]} />
                       <DetailChip icon={Flame} label={generatedRecipe.meta[2]} />
                     </div>
-
-                    <p className="mt-5 max-w-2xl text-sm leading-7 text-[#5d5148]">
-                      {generatedRecipe.summary}
-                    </p>
 
                     <div className="mt-6 border-t border-[#ead9c7] pt-6">
                       <SectionTitle
@@ -437,7 +540,7 @@ export default function AIGenerator() {
                         {generatedRecipe.ingredients.map((item) => (
                           <div key={item} className="rounded-2xl border border-[#ead9c7] bg-[#fffaf5] px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <span className="flex h-5 w-5 items-center justify-center rounded-md border border-[#3f725d] bg-[#e7f1ea] text-[#3f725d]">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-md border border-[#ff7a18] bg-[#fff4ea] text-[#d45d10]">
                                 <Check className="h-3 w-3" />
                               </span>
                               <span className="text-sm font-medium text-[#4c4038]">{formatIngredient(item)}</span>
@@ -457,7 +560,7 @@ export default function AIGenerator() {
                       <div className="mt-4 space-y-3">
                         {generatedRecipe.instructions.map((step, index) => (
                           <div key={step} className="flex items-start gap-4 rounded-2xl border border-[#ead9c7] bg-[#fffaf5] px-4 py-4">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#3f725d] text-sm font-semibold text-white shadow-[0_10px_22px_rgba(63,114,93,0.18)]">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ff7a18] text-sm font-semibold text-[#111111] shadow-[0_10px_22px_rgba(255,122,24,0.18)]">
                               {index + 1}
                             </div>
                             <p className="pt-0.5 text-sm leading-7 text-[#4c4038]">{step}</p>
@@ -481,6 +584,49 @@ export default function AIGenerator() {
                           </div>
                         ))}
                       </div>
+                    </div>
+
+                    {generatedRecipe.cookingTips.length > 0 ? (
+                      <div className="mt-6 border-t border-[#ead9c7] pt-6">
+                        <SectionTitle
+                          eyebrow="Cooking Tips"
+                          title="Make it even better"
+                          description="Small adjustments that level up the result."
+                        />
+                        <div className="mt-4 rounded-2xl border border-[#f3e1cf] bg-[#fff4ea] px-5 py-4 text-[#6a4321]">
+                          <ul className="space-y-2 text-sm leading-7">
+                            {generatedRecipe.cookingTips.map((tip) => (
+                              <li key={tip} className="flex gap-2">
+                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#d45d10]" />
+                                <span>{tip}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-6 border-t border-[#ead9c7] pt-6">
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={handleSaveRecipe}
+                          disabled={isSaving || !generatedSource}
+                          className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_35px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {isSaving ? 'Saving...' : 'Save Recipe'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleGenerate}
+                          disabled={isGenerating}
+                          className="inline-flex items-center justify-center gap-2 rounded-full border border-[#ead9c7] bg-white px-6 py-3 text-sm font-semibold text-[#111111] transition hover:bg-[#fff4ea] disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          Generate New Recipe
+                        </button>
+                      </div>
+                      {saveError ? <p className="mt-3 text-xs font-medium text-[#c64545]">{saveError}</p> : null}
+                      {saveSuccess ? <p className="mt-3 text-xs font-medium text-[#8d5c24]">{saveSuccess}</p> : null}
                     </div>
                   </div>
                 ) : (

@@ -3,6 +3,7 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Pantry from './pages/Pantry';
 import MyRecipes from './pages/Recipes/Recipe-home';
+import AllRecipes from './pages/Recipes/AllRecipes';
 import MealPlan from './pages/MealPlan';
 import ShoppingList from './pages/ShoppingList';
 import Settings from './pages/Settings';
@@ -12,6 +13,7 @@ import ForgotPassword from './pages/Auth/ForgotPassword';
 import AIGenerator from './pages/Recipes/AIGenerator';
 import ManualAdd from './pages/Recipes/ManualAdd';
 import SearchRecipes from './pages/Recipes/CommunityRecipes';
+import RecipeDetails from './pages/Recipes/RecipeDetails';
 import NavBar from './components/NavBar';
 import Footer from './components/Footer';
 
@@ -73,6 +75,14 @@ export default function App() {
         }
       />
       <Route
+        path="/recipes/all"
+        element={
+          <PrivateShell>
+            <AllRecipes />
+          </PrivateShell>
+        }
+      />
+      <Route
         path="/meal-plan"
         element={
           <PrivateShell>
@@ -117,6 +127,14 @@ export default function App() {
         element={
           <PrivateShell>
             <SearchRecipes />
+          </PrivateShell>
+        }
+      />
+      <Route
+        path="/recipes/:id"
+        element={
+          <PrivateShell>
+            <RecipeDetails />
           </PrivateShell>
         }
       />

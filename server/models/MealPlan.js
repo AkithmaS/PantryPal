@@ -4,7 +4,7 @@ class MealPlan {
     // add recipe to meal plan
     static async addRecipe(userId, mealData) {
         const { recipe_id, meal_date, meal_type } = mealData;
-        const date = meal_date || planned_date;
+        const date = meal_date;
 
         const result = await db.query(
             `INSERT INTO meal_plans (user_id, recipe_id, meal_date, meal_type) VALUES ($1, $2, $3, $4) 
@@ -17,7 +17,7 @@ class MealPlan {
 
     static async findDateRange(userId, startDate, endDate) {
         const result = await db.query(
-            `SELECT mp.*, r.title, r.image_url FROM meal_plans mp 
+            `SELECT mp.*, r.name AS title, r.image_url FROM meal_plans mp 
             JOIN recipes r ON mp.recipe_id = r.id 
             WHERE mp.user_id = $1 AND mp.meal_date BETWEEN $2 AND $3
             ORDER BY mp.meal_date ASC, 
@@ -41,7 +41,7 @@ class MealPlan {
     //get upcoming meal plan for a user(next 7 days )
     static async getUpcomingPlan(userId, limit =5) {
         const result = await db.query(
-            `SELECT mp.*, r.title, r.image_url FROM meal_plans mp 
+            `SELECT mp.*, r.name AS title, r.image_url FROM meal_plans mp 
             JOIN recipes r ON mp.recipe_id = r.id
             WHERE mp.user_id = $1 AND mp.meal_date >= CURRENT_DATE
             ORDER BY mp.meal_date ASC, 

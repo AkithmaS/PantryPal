@@ -2,37 +2,74 @@ import db from '../config/db.js';
 
 class Recipe {
     static async create(userId, recipeData) {
-        const client = await db.connect();
+        const client = await db.pool.connect();
 
         try {
             await client.query('BEGIN');
 
             const {
                 title,
+                name,
+                description,
                 ingredients = [],
                 instructions,
                 prep_time,
                 cook_time,
+                preparation_time,
+                cooking_time,
                 servings,
+                dietary_tags,
+                cuisine_type,
+                difficulty,
+                user_notes,
                 image_url,
                 nutrition
             } = recipeData;
+
+            const recipeName = name || title;
+            const prepTime = preparation_time ?? prep_time;
+            const cookTime = cooking_time ?? cook_time;
+
+            // Coerce times and servings to integers (DB expects INTEGER)
+            const prepTimeInt = prepTime !== undefined && prepTime !== null ? Math.round(Number(prepTime)) : null;
+            const cookTimeInt = cookTime !== undefined && cookTime !== null ? Math.round(Number(cookTime)) : null;
+            const servingsInt = servings !== undefined && servings !== null ? Math.round(Number(servings)) : null;
+            let instructionsJson = instructions;
+
+            if (typeof instructionsJson === 'string') {
+                try {
+                    instructionsJson = JSON.parse(instructionsJson);
+                } catch (error) {
+                    throw new Error('Instructions must be valid JSON');
+                }
+            }
+
+            if (instructionsJson === undefined || instructionsJson === null) {
+                throw new Error('Instructions are required');
+            }
+
+            const instructionsPayload = JSON.stringify(instructionsJson);
 
             // Insert recipe
             const recipeResult = await client.query(
                 `
                 INSERT INTO recipes 
-                (user_id, title, instructions, prep_time, cook_time, servings, image_url)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (user_id, name, description, instructions, preparation_time, cooking_time, servings, dietary_tags, cuisine_type, difficulty, user_notes, image_url)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING *
                 `,
                 [
                     userId,
-                    title,
-                    instructions,
-                    prep_time,
-                    cook_time,
-                    servings,
+                    recipeName,
+                    description,
+                    instructionsPayload,
+                    prepTimeInt,
+                    cookTimeInt,
+                    servingsInt,
+                    dietary_tags,
+                    cuisine_type,
+                    difficulty,
+                    user_notes,
                     image_url
                 ]
             );
@@ -42,36 +79,69 @@ class Recipe {
             // Insert ingredients
             if (ingredients.length > 0) {
                 for (const ingredient of ingredients) {
+                    // Ensure quantity is an integer (DB column is INTEGER). Round floats, default to 1.
+                    let qty = ingredient && ingredient.quantity !== undefined && ingredient.quantity !== null ? Number(ingredient.quantity) : NaN;
+                    if (!Number.isFinite(qty) || isNaN(qty)) {
+                        qty = 1;
+                    }
+                    const qtyInt = Math.round(qty);
+
                     await client.query(
                         `
-                        INSERT INTO ingredients 
-                        (recipe_id, name, quantity, unit)
+                        INSERT INTO recipe_ingredients 
+                        (recipe_id, ingredient_name, quantity, unit)
                         VALUES ($1, $2, $3, $4)
                         `,
                         [
                             recipe.id,
                             ingredient.name,
-                            ingredient.quantity,
-                            ingredient.unit
+                            qtyInt,
+                            ingredient.unit || ''
                         ]
                     );
                 }
             }
 
-            // Insert nutritional info
+            // Insert nutritional info (coerce/clean values)
             if (nutrition && Object.keys(nutrition).length > 0) {
+                const parseNumber = (v) => {
+                    if (v === undefined || v === null) return null;
+                    if (typeof v === 'number' && Number.isFinite(v)) return v;
+                    const s = String(v);
+                    // Try direct Number
+                    const n = Number(s);
+                    if (!Number.isNaN(n)) return n;
+                    // Extract first numeric token from string (e.g., "approx. 700 calories per serving")
+                    const m = s.match(/[-+]?\d+(?:\.\d+)?/);
+                    if (m) return Number(m[0]);
+                    return null;
+                };
+
+                const caloriesVal = parseNumber(nutrition.calories);
+                const carbsVal = parseNumber(nutrition.carbohydrates);
+                const proteinVal = parseNumber(nutrition.protein);
+                const fiberVal = parseNumber(nutrition.fiber);
+                const fatVal = parseNumber(nutrition.fat);
+
+                const caloriesInt = caloriesVal !== null && caloriesVal !== undefined ? Math.round(caloriesVal) : null;
+                const carbsNum = carbsVal !== null && carbsVal !== undefined ? Number(Number(carbsVal).toFixed(2)) : null;
+                const proteinNum = proteinVal !== null && proteinVal !== undefined ? Number(Number(proteinVal).toFixed(2)) : null;
+                const fiberNum = fiberVal !== null && fiberVal !== undefined ? Number(Number(fiberVal).toFixed(2)) : null;
+                const fatNum = fatVal !== null && fatVal !== undefined ? Number(Number(fatVal).toFixed(2)) : null;
+
                 await client.query(
                     `
-                    INSERT INTO nutritional_info 
-                    (recipe_id, calories, protein, carbs, fat)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO recipe_nutrition 
+                    (recipe_id, calories, carbohydrates, protein, fiber, fat)
+                    VALUES ($1, $2, $3, $4, $5, $6)
                     `,
                     [
                         recipe.id,
-                        nutrition.calories,
-                        nutrition.protein,
-                        nutrition.carbs,
-                        nutrition.fat
+                        caloriesInt,
+                        carbsNum,
+                        proteinNum,
+                        fiberNum,
+                        fatNum
                     ]
                 );
             }
@@ -103,14 +173,14 @@ class Recipe {
 
         //get ingredients
         const ingredientsResult = await db.query(
-            'SELECT name, quantity, unit FROM ingredients WHERE recipe_id = $1',
+            'SELECT ingredient_name AS name, quantity, unit FROM recipe_ingredients WHERE recipe_id = $1',
             [recipe.id]
         );
         recipe.ingredients = ingredientsResult.rows;
 
         //get nutritional info
         const nutritionResult = await db.query(
-            'SELECT * FROM nutritional_info WHERE recipe_id = $1',
+            'SELECT * FROM recipe_nutrition WHERE recipe_id = $1',
             [recipe.id]
         );
         return {
@@ -126,34 +196,34 @@ class Recipe {
         const params = [userId];
         let paramCount = 1;
 
-        if (filters.title) {
+        if (filters.title || filters.name) {
             paramCount++;
-            query += ` AND title ILIKE $${paramCount}`;
-            params.push(`%${filters.title}%`);
+            query += ` AND name ILIKE $${paramCount}`;
+            params.push(`%${filters.title || filters.name}%`);
         }
 
-        if(filters.cuisine_type) {
+        if (filters.cuisine_type || filters.cuisine) {
             paramCount++;
             query += ` AND cuisine_type = $${paramCount}`;
-            params.push(filters.cuisine_type);
+            params.push(filters.cuisine_type || filters.cuisine);
         }
 
-        if(filters.difficulty) {
+        if (filters.difficulty) {
             paramCount++;
             query += ` AND difficulty = $${paramCount}`;
             params.push(filters.difficulty);
         }
 
-        if(filters.dietary_tag) {
+        if (filters.dietary_tag || filters.dietary) {
             paramCount++;
-            query += ` AND dietary_tags @> $${paramCount}::jsonb`;
-            params.push(JSON.stringify([filters.dietary_tag]));
+            query += ` AND dietary_tags @> $${paramCount}::text[]`;
+            params.push([filters.dietary_tag || filters.dietary]);
         }
 
-        if(filters.max_prep_time) {
+        if (filters.max_prep_time || filters.maxCookingTime) {
             paramCount++;
-            query += ` AND prep_time <= $${paramCount}`;
-            params.push(filters.max_prep_time);
+            query += ` AND preparation_time <= $${paramCount}`;
+            params.push(filters.max_prep_time || filters.maxCookingTime);
         }
 
     //sorting
@@ -183,15 +253,55 @@ class Recipe {
 //update recipe
     static async update(userId, recipeId, updates) {
         const {
-            name, description, instructions, prep_time, cook_time, servings, image_url, dietary_tags, cuisine_type, difficulty
+            title,
+            name,
+            description,
+            instructions,
+            prep_time,
+            cook_time,
+            preparation_time,
+            cooking_time,
+            servings,
+            image_url,
+            dietary_tags,
+            cuisine_type,
+            difficulty,
+            user_notes
         } = updates;
-        const client = await db.connect();
+        const client = await db.pool.connect();
         try {
             await client.query('BEGIN');
 
             const result = await client.query(
-                'UPDATE recipes SET name = $1, description = $2, instructions = $3, prep_time = $4, cook_time = $5, servings = $6, image_url = $7, dietary_tags = $8, cuisine_type = $9, difficulty = $10 WHERE user_id = $11 AND id = $12 RETURNING *',
-                [name =  COALESCE($1, name), description = COALESCE($2, description), instructions = COALESCE($3, instructions), prep_time = COALESCE($4, prep_time), cook_time = COALESCE($5, cook_time), servings = COALESCE($6, servings), image_url = COALESCE($7, image_url), dietary_tags = COALESCE($8, dietary_tags), cuisine_type = COALESCE($9, cuisine_type), difficulty = COALESCE($10, difficulty), userId, recipeId]
+                `UPDATE recipes
+                 SET name = COALESCE($1, name),
+                     description = COALESCE($2, description),
+                     instructions = COALESCE($3, instructions),
+                     preparation_time = COALESCE($4, preparation_time),
+                     cooking_time = COALESCE($5, cooking_time),
+                     servings = COALESCE($6, servings),
+                     image_url = COALESCE($7, image_url),
+                     dietary_tags = COALESCE($8, dietary_tags),
+                     cuisine_type = COALESCE($9, cuisine_type),
+                     difficulty = COALESCE($10, difficulty),
+                     user_notes = COALESCE($11, user_notes)
+                 WHERE user_id = $12 AND id = $13
+                 RETURNING *`,
+                [
+                    name || title,
+                    description,
+                    instructions,
+                    preparation_time ?? prep_time,
+                    cooking_time ?? cook_time,
+                    servings,
+                    image_url,
+                    dietary_tags,
+                    cuisine_type,
+                    difficulty,
+                    user_notes,
+                    userId,
+                    recipeId
+                ]
             );
 
             if (result.rows.length === 0) {
@@ -225,13 +335,30 @@ class Recipe {
         const result = await db.query(
             `SELECT
                 (SELECT COUNT(*) FROM recipes WHERE user_id = $1) AS total_recipes,
-                (SELECT AVG(prep_time) FROM recipes WHERE user_id = $1) AS avg_prep_time,
-                (SELECT AVG(cook_time) FROM recipes WHERE user_id = $1) AS avg_cook_time
+                (SELECT AVG(preparation_time) FROM recipes WHERE user_id = $1) AS avg_prep_time,
+                (SELECT AVG(cooking_time) FROM recipes WHERE user_id = $1) AS avg_cook_time
             FROM recipes WHERE user_id = $1
         `,
             [userId]
         );
         return result.rows[0];
+    }
+
+    // Controller-friendly aliases
+    static async getById(userId, recipeId) {
+        return this.findById(userId, recipeId);
+    }
+
+    static async getAllByUserId(userId, filters = {}) {
+        return this.findAllByUserId(userId, filters);
+    }
+
+    static async getRecentByUserId(userId, limit = 5) {
+        return this.findRecentByUserId(userId, limit);
+    }
+
+    static async getStatsByUserId(userId) {
+        return this.getStats(userId);
     }
 }
 export default Recipe;

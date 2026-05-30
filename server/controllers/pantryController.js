@@ -28,7 +28,7 @@ export const getPantryItems = async (req, res, next) => {
 // Get pantry stats
 export const getPantryStats = async (req, res, next) => {
     try {
-        const stats = await pantryitem.getStatsByUserId(req.user.id);
+        const stats = await pantryitem.getStatistics(req.user.id);
 
         res.json({
             success: true,
@@ -78,7 +78,7 @@ export const addPantryItem = async (req, res, next) => {
 // Update pantry item
 export const updatePantryItem = async (req, res, next) => {
     try {
-        const itemId = parseInt(req.params.id);
+        const itemId = req.params.id;
 
         const item = await pantryitem.update(
             req.user.id,
@@ -105,7 +105,7 @@ export const updatePantryItem = async (req, res, next) => {
 // Delete pantry item
 export const deletePantryItem = async (req, res, next) => {
     try {
-        const itemId = parseInt(req.params.id);
+        const itemId = req.params.id;
 
         const item = await pantryitem.delete(
             req.user.id,

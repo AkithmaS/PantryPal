@@ -5,13 +5,14 @@ import {
   Calendar,
   CircleAlert,
   Plus,
+  Pencil,
   Search,
   X,
 } from 'lucide-react';
 import PantryAddItem from './pantry_additem';
 import { usePantry } from '../context/PantryContext';
 
-const categories = ['Fruits', 'Dairy', 'Meat', 'Grains', 'Spices', 'Other'];
+const categories = ['Vegetables','Fruits', 'Dairy', 'Meat', 'Grains', 'Spices', 'Other'];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -40,12 +41,13 @@ function formatExpiry(expiryDate) {
   }).format(new Date(expiryDate));
 }
 
-function PantryItemCard({ item, onDelete }) {
-  const hasExpiryDate = Boolean(item.expiryDate);
-  const daysUntilExpiry = hasExpiryDate ? getDaysUntil(item.expiryDate) : null;
+function PantryItemCard({ item, onDelete, onEdit }) {
+  const hasExpiryDate = Boolean(item.expiration_date);
+  const daysUntilExpiry = hasExpiryDate ? getDaysUntil(item.expiration_date) : null;
   const isExpired = hasExpiryDate && daysUntilExpiry < 0;
   const isExpiringSoon = hasExpiryDate && daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
-  const shouldShowRunningLow = item.runningLow || isExpired;
+  const shouldShowRunningLow = item.is_running_low || isExpired;
+  const quantityLabel = `${item.quantity} ${item.unit || ''}`.trim();
 
   return (
     <motion.article
@@ -53,28 +55,34 @@ function PantryItemCard({ item, onDelete }) {
       whileHover={{ y: -6 }}
       className="group relative rounded-[22px] border border-[#ead9c7] bg-white p-5 shadow-[0_14px_34px_rgba(17,17,17,0.06)] transition-transform duration-300 hover:shadow-[0_20px_44px_rgba(17,17,17,0.1)]"
     >
-      <button
-        type="button"
-        onClick={() => onDelete(item.id)}
-        className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-[#8f6a4b] transition hover:bg-[#fff4ea] hover:text-[#111111]"
-        aria-label={`Delete ${item.name}`}
-      >
-        <X className="h-4 w-4" />
-      </button>
-
-      <div className="flex items-start justify-between gap-4 pr-8">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="font-display text-lg font-semibold leading-tight text-[#111111] sm:text-xl">
             {item.name}
           </h3>
           <p className="mt-1 text-sm font-medium text-[#8d7f72]">{item.category}</p>
         </div>
-
-        <div className="shrink-0 text-right">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#8d7f72]">Quantity</p>
-          <p className="mt-1 text-base font-semibold text-[#111111]">{item.quantity}</p>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#8f6a4b] transition hover:bg-[#fff4ea] hover:text-[#111111]"
+            aria-label={`Edit ${item.name}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(item.id)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#8f6a4b] transition hover:bg-[#fff4ea] hover:text-[#111111]"
+            aria-label={`Delete ${item.name}`}
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
+
+      <p className="mt-3 text-sm font-semibold text-[#111111]">{quantityLabel}</p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <div
@@ -84,8 +92,8 @@ function PantryItemCard({ item, onDelete }) {
           <span className={isExpired ? 'font-semibold' : ''}>
             {hasExpiryDate
               ? isExpired
-                ? `Expired: ${formatExpiry(item.expiryDate)}`
-                : `Expires: ${formatExpiry(item.expiryDate)}`
+                ? `Expired: ${formatExpiry(item.expiration_date)}`
+                : `Expires: ${formatExpiry(item.expiration_date)}`
               : 'No expiry date'}
           </span>
         </div>
@@ -105,11 +113,22 @@ function PantryItemCard({ item, onDelete }) {
 }
 
 export default function Pantry() {
-  const { items, addItem, removeItem } = usePantry();
+  const {
+    items,
+    addItem,
+    removeItem,
+    updateItem,
+    isLoading,
+    error,
+  } = usePantry();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [isEditItemOpen, setIsEditItemOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     quantity: '',
@@ -127,7 +146,7 @@ export default function Pantry() {
         query.length === 0 ||
         item.name.toLowerCase().includes(query) ||
         item.category.toLowerCase().includes(query) ||
-        item.quantity.toLowerCase().includes(query);
+        String(item.quantity).toLowerCase().includes(query);
 
       const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
 
@@ -137,7 +156,11 @@ export default function Pantry() {
 
   const expiringSoonCount = useMemo(
     () => items.filter((item) => {
-      const daysUntilExpiry = getDaysUntil(item.expiryDate);
+      if (!item.expiration_date) {
+        return false;
+      }
+
+      const daysUntilExpiry = getDaysUntil(item.expiration_date);
       return daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
     }).length,
     [items],
@@ -149,19 +172,30 @@ export default function Pantry() {
       return;
     }
 
+    setDeleteError('');
     setDeleteTarget(itemToDelete);
   };
 
-  const confirmDeleteItem = () => {
+  const confirmDeleteItem = async () => {
     if (!deleteTarget) {
       return;
     }
 
-    removeItem(deleteTarget.id);
-    setDeleteTarget(null);
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+      await removeItem(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Unable to delete this item. Please try again.';
+      setDeleteError(message);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const cancelDeleteItem = () => {
+    setDeleteError('');
     setDeleteTarget(null);
   };
 
@@ -177,8 +211,26 @@ export default function Pantry() {
     setIsAddItemOpen(true);
   };
 
+  const openEditItemModal = (item) => {
+    setEditTarget(item);
+    setFormData({
+      name: item.name || '',
+      quantity: item.quantity ?? '',
+      unit: item.unit || 'Pieces',
+      category: item.category || 'Other',
+      expiryDate: item.expiration_date ? String(item.expiration_date).slice(0, 10) : '',
+      runningLow: Boolean(item.is_running_low),
+    });
+    setIsEditItemOpen(true);
+  };
+
   const closeAddItemModal = () => {
     setIsAddItemOpen(false);
+  };
+
+  const closeEditItemModal = () => {
+    setIsEditItemOpen(false);
+    setEditTarget(null);
   };
 
   const handleFormChange = (event) => {
@@ -190,20 +242,40 @@ export default function Pantry() {
     }));
   };
 
-  const handleAddItem = (event) => {
+  const handleAddItem = async (event) => {
     event.preventDefault();
 
-    const nextItem = {
-      id: Date.now(),
+    const payload = {
       name: formData.name.trim(),
       category: formData.category,
-      quantity: `${Number(formData.quantity).toFixed(2)} ${formData.unit.toLowerCase()}`,
-      expiryDate: formData.expiryDate,
-      runningLow: formData.runningLow,
+      quantity: Number(formData.quantity),
+      unit: formData.unit,
+      expiration_date: formData.expiryDate || null,
+      is_running_low: formData.runningLow,
     };
 
-    addItem(nextItem);
+    await addItem(payload);
     setIsAddItemOpen(false);
+  };
+
+  const handleUpdateItem = async (event) => {
+    event.preventDefault();
+
+    if (!editTarget) {
+      return;
+    }
+
+    const payload = {
+      name: formData.name.trim(),
+      category: formData.category,
+      quantity: Number(formData.quantity),
+      unit: formData.unit,
+      expiration_date: formData.expiryDate || null,
+      is_running_low: formData.runningLow,
+    };
+
+    await updateItem(editTarget.id, payload);
+    closeEditItemModal();
   };
 
   return (
@@ -289,9 +361,28 @@ export default function Pantry() {
             variants={fadeUp}
             className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
           >
-            {filteredItems.length > 0 ? (
+            {isLoading ? (
+              <div className="col-span-full rounded-[24px] border border-dashed border-[#ead9c7] bg-white px-6 py-12 text-center shadow-[0_12px_30px_rgba(17,17,17,0.04)]">
+                <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#fff4ea] text-[#d45d10]">
+                  <CircleAlert className="h-6 w-6" />
+                </div>
+                <h2 className="mt-4 font-display text-2xl font-semibold text-[#111111]">
+                  Loading pantry items...
+                </h2>
+              </div>
+            ) : error ? (
+              <div className="col-span-full rounded-[24px] border border-dashed border-[#ead9c7] bg-white px-6 py-12 text-center shadow-[0_12px_30px_rgba(17,17,17,0.04)]">
+                <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#fff4ea] text-[#d45d10]">
+                  <CircleAlert className="h-6 w-6" />
+                </div>
+                <h2 className="mt-4 font-display text-2xl font-semibold text-[#111111]">
+                  Unable to load pantry items
+                </h2>
+                <p className="mt-2 text-sm leading-7 text-[#6e6258]">{error}</p>
+              </div>
+            ) : filteredItems.length > 0 ? (
               filteredItems.map((item) => (
-                <PantryItemCard key={item.id} item={item} onDelete={handleDeleteItem} />
+                <PantryItemCard key={item.id} item={item} onDelete={handleDeleteItem} onEdit={openEditItemModal} />
               ))
             ) : (
               <div className="col-span-full rounded-[24px] border border-dashed border-[#ead9c7] bg-white px-6 py-12 text-center shadow-[0_12px_30px_rgba(17,17,17,0.04)]">
@@ -317,6 +408,21 @@ export default function Pantry() {
         formData={formData}
         onChange={handleFormChange}
         categories={categories}
+        title="Add Pantry Item"
+        subtitle="Keep your pantry list organized and up to date."
+        submitLabel="Add Item"
+      />
+
+      <PantryAddItem
+        isOpen={isEditItemOpen}
+        onClose={closeEditItemModal}
+        onSubmit={handleUpdateItem}
+        formData={formData}
+        onChange={handleFormChange}
+        categories={categories}
+        title="Update Pantry Item"
+        subtitle="Edit the details and save the latest pantry info."
+        submitLabel="Save Changes"
       />
 
       {deleteTarget ? (
@@ -349,18 +455,23 @@ export default function Pantry() {
                 type="button"
                 onClick={cancelDeleteItem}
                 className="inline-flex items-center justify-center rounded-2xl border border-[#d8cab9] bg-white px-6 py-3 text-sm font-semibold text-[#111111] transition hover:bg-[#fff4ea]"
+                disabled={isDeleting}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteItem}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_30px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_30px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isDeleting}
               >
                 <X className="h-4 w-4" />
-                Delete Item
+                {isDeleting ? 'Deleting...' : 'Delete Item'}
               </button>
             </div>
+            {deleteError ? (
+              <p className="px-6 pb-6 text-sm text-[#c64545] sm:px-8">{deleteError}</p>
+            ) : null}
           </motion.div>
         </div>
       ) : null}

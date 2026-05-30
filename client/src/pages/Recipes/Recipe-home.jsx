@@ -62,7 +62,7 @@ function BlobRecipesButton() {
       />
 
       <Link
-        to="/recipes"
+        to="/recipes/all"
         className="group relative inline-flex items-center gap-3 overflow-hidden rounded-full border border-white/40 bg-[linear-gradient(135deg,rgba(255,122,24,0.95)_0%,rgba(255,161,84,0.9)_48%,rgba(255,122,24,0.92)_100%)] px-5 py-3.5 text-sm font-semibold text-[#111111] shadow-[0_20px_40px_rgba(255,122,24,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-xl transition duration-300 hover:scale-[1.03] hover:shadow-[0_24px_50px_rgba(255,122,24,0.34),0_0_0_1px_rgba(255,122,24,0.18)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#ff7a18]/30 dark:border-white/10 dark:text-[#111111]"
         aria-label="All My Recipes"
       >

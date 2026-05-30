@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
 import loginBackground from '../../assets/brooke-lark-HlNcigvUi4Q-unsplash.jpg';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -39,8 +41,13 @@ export default function Login() {
       });
 
       const token = response?.data?.data?.token;
+      const user = response?.data?.data?.user;
       if (token) {
         localStorage.setItem('pantrypal_token', token);
+      }
+
+      if (user) {
+        signIn(user);
       }
 
       navigate('/dashboard');
