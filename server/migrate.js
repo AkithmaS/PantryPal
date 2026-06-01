@@ -29,6 +29,7 @@ async function runMigrations() {
         const schemaSql = await fs.readFile(schemaPath, 'utf-8');
 
         await client.query(schemaSql);
+        await client.query(`ALTER TABLE shopping_list_items ADD COLUMN IF NOT EXISTS category VARCHAR(100) NOT NULL DEFAULT 'Other'`);
 
         console.log('Migrations completed successfully.');
         console.log('tables created');
@@ -37,6 +38,7 @@ async function runMigrations() {
         console.log('  - recipes');
         console.log('  - meal_plans');
         console.log('  - shopping_lists');
+        console.log('  - waste_logs');
     } catch (error) {
         console.error('Error running migrations:', error);
         process.exitCode = 1;

@@ -53,10 +53,27 @@ function formatApiDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
+} 
 
 function normalizeMealType(mealType) {
   return String(mealType || '').toLowerCase();
+}
+
+function getWeekSelectionLabel(offset) {
+  if (offset === 0) {
+    return 'This Week';
+  }
+
+  if (offset === -1) {
+    return 'Last Week';
+  }
+
+  if (offset === 1) {
+    return 'Next Week';
+  }
+
+  const absOffset = Math.abs(offset);
+  return offset > 0 ? `${absOffset} Weeks Ahead` : `${absOffset} Weeks Ago`;
 }
 
 function PlannerActionButton({ children, isActive, onClick, icon: Icon, iconPosition = 'left' }) {
@@ -287,7 +304,7 @@ export default function MealPlan() {
               Previous Week
             </PlannerActionButton>
             <PlannerActionButton isActive onClick={() => setWeekOffset(0)}>
-              This Week
+              {getWeekSelectionLabel(weekOffset)}
             </PlannerActionButton>
             <PlannerActionButton icon={ChevronRight} iconPosition="right" onClick={() => setWeekOffset((current) => current + 1)}>
               Next Week

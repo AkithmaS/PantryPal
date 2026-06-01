@@ -257,6 +257,7 @@ class Recipe {
             name,
             description,
             instructions,
+            ingredients,
             prep_time,
             cook_time,
             preparation_time,
@@ -271,6 +272,20 @@ class Recipe {
         const client = await db.pool.connect();
         try {
             await client.query('BEGIN');
+
+            let instructionsPayload = null;
+
+            if (instructions !== undefined && instructions !== null) {
+                if (typeof instructions === 'string') {
+                    try {
+                        instructionsPayload = JSON.stringify(JSON.parse(instructions));
+                    } catch (error) {
+                        instructionsPayload = JSON.stringify([instructions]);
+                    }
+                } else {
+                    instructionsPayload = JSON.stringify(instructions);
+                }
+            }
 
             const result = await client.query(
                 `UPDATE recipes
@@ -290,7 +305,7 @@ class Recipe {
                 [
                     name || title,
                     description,
-                    instructions,
+                    instructionsPayload,
                     preparation_time ?? prep_time,
                     cooking_time ?? cook_time,
                     servings,
@@ -306,6 +321,38 @@ class Recipe {
 
             if (result.rows.length === 0) {
                 throw new Error('Recipe not found');
+            }
+
+            if (ingredients !== undefined) {
+                await client.query('DELETE FROM recipe_ingredients WHERE recipe_id = $1', [recipeId]);
+
+                if (Array.isArray(ingredients) && ingredients.length > 0) {
+                    for (const ingredient of ingredients) {
+                        const ingredientName = ingredient?.name ? String(ingredient.name).trim() : '';
+                        if (!ingredientName) {
+                            continue;
+                        }
+
+                        let qty = ingredient.quantity !== undefined && ingredient.quantity !== null ? Number(ingredient.quantity) : NaN;
+                        if (!Number.isFinite(qty) || Number.isNaN(qty)) {
+                            qty = 1;
+                        }
+
+                        await client.query(
+                            `
+                            INSERT INTO recipe_ingredients
+                            (recipe_id, ingredient_name, quantity, unit)
+                            VALUES ($1, $2, $3, $4)
+                            `,
+                            [
+                                recipeId,
+                                ingredientName,
+                                Math.round(qty),
+                                ingredient.unit || ''
+                            ]
+                        );
+                    }
+                }
             }
 
             await client.query('COMMIT');

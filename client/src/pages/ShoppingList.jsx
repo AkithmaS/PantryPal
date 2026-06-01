@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PackagePlus, Plus, Trash2, X } from 'lucide-react';
-import { usePantry } from '../context/PantryContext';
+import { PackagePlus, Plus, Trash2, X, Trash } from 'lucide-react';
+import ConflictResolutionModal from '../components/ConflictResolutionModal.jsx';
+import {
+  addShoppingItem,
+  deleteShoppingItem,
+  clearCheckedShoppingItems,
+  confirmAddToPantry,
+  getShoppingItems,
+  preflightAddToPantry,
+  toggleShoppingItem,
+} from '../api/shopping.js';
 
 const pageFade = {
   hidden: { opacity: 0, y: 18 },
@@ -13,33 +22,23 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.08 } },
 };
 
-const categories = ['Dairy', 'Meat', 'Produce', 'Other'];
-
-const initialShoppingItems = [
-  { id: 1, name: 'Milk', quantity: '1', unit: 'l', category: 'Dairy', checked: true },
-  { id: 2, name: 'Curd', quantity: '1', unit: 'l', category: 'Dairy', checked: true },
-  { id: 3, name: 'Chicken', quantity: '2', unit: 'kg', category: 'Meat', checked: false },
-  { id: 4, name: 'Ground Beef', quantity: '500', unit: 'g', category: 'Meat', checked: false },
-  { id: 5, name: 'Garlic', quantity: '1', unit: 'bulb', category: 'Produce', checked: false },
-  { id: 6, name: 'Spinach', quantity: '2', unit: 'bags', category: 'Produce', checked: false },
-  { id: 7, name: 'Rice', quantity: '1', unit: 'kg', category: 'Other', checked: false },
-  { id: 8, name: 'Pasta', quantity: '2', unit: 'packs', category: 'Other', checked: false },
-];
+const categories = ['Vegetables', 'Fruits', 'Dairy', 'Meat', 'Grains', 'Spices', 'Other'];
 
 const emptyFormState = {
   name: '',
   quantity: '',
   unit: 'pcs',
-  category: 'Produce',
+  category: 'Vegetables',
 };
 
-function buildPantryItem(shoppingItem) {
+function mapShoppingItem(item) {
   return {
-    id: Date.now() + shoppingItem.id,
-    name: shoppingItem.name,
-    category: shoppingItem.category,
-    quantity: `${shoppingItem.quantity} ${shoppingItem.unit}`,
-    expiryDate: '',
+    id: item.id,
+    name: item.name || item.ingredient_name || '',
+    quantity: item.quantity,
+    unit: item.unit,
+    category: categories.includes(item.category) ? item.category : 'Other',
+    checked: Boolean(item.is_checked ?? item.checked ?? false),
   };
 }
 
@@ -68,7 +67,7 @@ function ActionButton({ children, icon: Icon, onClick, isActive = false, isDange
   );
 }
 
-function ShoppingItemRow({ item, onToggle }) {
+function ShoppingItemRow({ item, onToggle, onDelete }) {
   return (
     <motion.li
       layout
@@ -97,15 +96,27 @@ function ShoppingItemRow({ item, onToggle }) {
           <p className="mt-1 text-sm text-[#6e6258]">{item.quantity} {item.unit}</p>
         </div>
 
-        <span className="rounded-full bg-[#fff4ea] px-3 py-1 text-xs font-semibold text-[#8d5c24]">
-          {item.category}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[#fff4ea] px-3 py-1 text-xs font-semibold text-[#8d5c24]">
+            {item.category}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => onDelete(item.id)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ead9c7] bg-white text-[#8f6a4b] transition hover:border-[#c64545]/30 hover:bg-[#fff4ea] hover:text-[#c64545]"
+            aria-label={`Delete ${item.name}`}
+            title="Delete item"
+          >
+            <Trash className="h-4 w-4" />
+          </button>
+        </div>
       </label>
     </motion.li>
   );
 }
 
-function CategoryCard({ category, items, onToggle }) {
+function CategoryCard({ category, items, onToggle, onDelete }) {
   return (
     <motion.article
       variants={pageFade}
@@ -126,7 +137,7 @@ function CategoryCard({ category, items, onToggle }) {
           <motion.ul variants={stagger} initial="hidden" animate="visible" className="space-y-3">
             <AnimatePresence initial={false} mode="popLayout">
               {items.map((item) => (
-                <ShoppingItemRow key={item.id} item={item} onToggle={onToggle} />
+                <ShoppingItemRow key={item.id} item={item} onToggle={onToggle} onDelete={onDelete} />
               ))}
             </AnimatePresence>
           </motion.ul>
@@ -222,8 +233,8 @@ function ShoppingModal({ isOpen, onClose, onSubmit, formData, onChange, validati
                   <option value="ml">Milliliters</option>
                   <option value="packs">Packs</option>
                   <option value="cans">Cans</option>
-                  <option value="bulb">Bulb</option>
-                  <option value="bags">Bags</option>
+                  <option value="bottle">Bottle</option>
+                  <option value="other">Other</option>
                 </select>
               </label>
             </div>
@@ -270,59 +281,131 @@ function ShoppingModal({ isOpen, onClose, onSubmit, formData, onChange, validati
 }
 
 export default function ShoppingList() {
-  const { addItems: addPantryItems } = usePantry();
-  const [items, setItems] = useState(initialShoppingItems);
+  const [items, setItems] = useState([]);
   const [isReady, setIsReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPantryConfirmOpen, setIsPantryConfirmOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
   const [formData, setFormData] = useState(emptyFormState);
+  const [error, setError] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
+  const [conflictState, setConflictState] = useState({ isOpen: false, conflicts: [], cleanItems: [] });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsReady(true), 120);
     return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const response = await getShoppingItems();
+        setItems((response.data?.data || []).map(mapShoppingItem));
+      } catch (fetchError) {
+        setError(fetchError?.response?.data?.message || 'Unable to load shopping list');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadItems();
+  }, []);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => setToastMessage(''), 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
+
   const checkedCount = useMemo(() => items.filter((item) => item.checked).length, [items]);
 
-  const groupedItems = useMemo(() => {
-    return categories.map((category) => ({
-      category,
-      items: items.filter((item) => item.category === category),
-    }));
-  }, [items]);
+  const refreshItems = async () => {
+    const response = await getShoppingItems();
+    const nextItems = (response.data?.data || []).map(mapShoppingItem);
 
-  const handleToggleItem = (id) => {
-    setItems((currentItems) =>
-      currentItems.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)),
-    );
+    setItems((currentItems) => {
+      const currentMap = new Map(currentItems.map((item) => [item.id, item]));
+
+      return nextItems.map((item) => {
+        const existing = currentMap.get(item.id);
+
+        if (!existing) {
+          return item;
+        }
+
+        return {
+          ...item,
+          category: existing.category || item.category,
+          checked: existing.checked,
+        };
+      });
+    });
   };
 
-  const handleClearChecked = () => {
-    setItems((currentItems) => currentItems.filter((item) => !item.checked));
+  const showToast = (message) => {
+    setToastMessage(message);
   };
 
-  const handleAddToPantry = () => {
-    const checkedItems = items.filter((item) => item.checked);
+  const handleToggleItem = async (id) => {
+    try {
+      const response = await toggleShoppingItem(id);
+      const updatedData = response.data?.data;
 
-    if (checkedItems.length === 0) {
+      if (updatedData) {
+        const updated = mapShoppingItem(updatedData);
+        setItems((currentItems) => currentItems.map((item) => (item.id === id ? updated : item)));
+        return;
+      }
+
+      await refreshItems();
+    } catch (toggleError) {
+      setError(toggleError?.response?.data?.message || 'Unable to update item');
+    }
+  };
+
+  const handleDeleteItem = async (id) => {
+    const targetItem = items.find((item) => item.id === id);
+
+    if (!targetItem) {
       return;
     }
 
-    setIsPantryConfirmOpen(true);
-  };
+    const shouldDelete = window.confirm(`Delete ${targetItem.name} from your shopping list?`);
 
-  const confirmAddToPantry = () => {
-    const checkedItems = items.filter((item) => item.checked);
-
-    if (checkedItems.length === 0) {
-      setIsPantryConfirmOpen(false);
+    if (!shouldDelete) {
       return;
     }
 
-    addPantryItems(checkedItems.map(buildPantryItem));
-    setItems((currentItems) => currentItems.filter((item) => !item.checked));
-    setIsPantryConfirmOpen(false);
+    try {
+      setActionLoading(true);
+      await deleteShoppingItem(id);
+      setItems((currentItems) => currentItems.filter((item) => item.id !== id));
+      showToast('Item deleted');
+    } catch (deleteError) {
+      setError(deleteError?.response?.data?.message || 'Unable to delete item');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClearChecked = async () => {
+    try {
+      setActionLoading(true);
+      await clearCheckedShoppingItems();
+      await refreshItems();
+      showToast('Checked items cleared');
+    } catch (clearError) {
+      setError(clearError?.response?.data?.message || 'Unable to clear checked items');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleOpenModal = () => {
@@ -341,7 +424,7 @@ export default function ShoppingList() {
     setFormData((current) => ({ ...current, [name]: value }));
   };
 
-  const handleAddItem = (event) => {
+  const handleAddItem = async (event) => {
     event.preventDefault();
 
     if (!formData.name.trim()) {
@@ -349,17 +432,103 @@ export default function ShoppingList() {
       return;
     }
 
-    const nextItem = {
-      id: Date.now(),
-      name: formData.name.trim(),
-      quantity: formData.quantity || '1',
-      unit: formData.unit,
-      category: formData.category,
-      checked: false,
-    };
+    try {
+      setActionLoading(true);
+      setValidationMessage('');
 
-    setItems((currentItems) => [nextItem, ...currentItems]);
-    handleCloseModal();
+      const response = await addShoppingItem({
+        name: formData.name.trim(),
+        quantity: formData.quantity || '1',
+        unit: formData.unit,
+        category: formData.category,
+      });
+
+      const createdItem = response.data?.data;
+
+      if (createdItem) {
+        setItems((currentItems) => [mapShoppingItem(createdItem), ...currentItems]);
+      }
+      await refreshItems();
+      showToast('Item added to shopping list');
+      handleCloseModal();
+    } catch (addError) {
+      setValidationMessage(addError?.response?.data?.message || 'Unable to add item');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddToPantry = async () => {
+    const checkedItems = items.filter((item) => item.checked);
+
+    if (checkedItems.length === 0) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError('');
+
+      const preflightResponse = await preflightAddToPantry(checkedItems.map((item) => item.id));
+      const preflight = preflightResponse.data?.data || { clean: [], conflicts: [] };
+
+      setConflictState({
+        isOpen: true,
+        conflicts: preflight.conflicts || [],
+        cleanItems: preflight.clean || [],
+      });
+    } catch (addError) {
+      setError(addError?.response?.data?.message || 'Unable to add items to pantry');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmConflictResolution = async ({ decisions, cleanItems }) => {
+    try {
+      setActionLoading(true);
+      setError('');
+
+      const cleanPayload = (cleanItems || []).map((item) => ({
+        shoppingItemId: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        newExpiry: decisions[item.id]?.newExpiry ?? null,
+      }));
+
+      const conflictDecisionArray = conflictState.conflicts.map((conflict) => {
+        const decision = decisions[conflict.shoppingItem.id] || {
+          action: 'merge',
+          newExpiry: null,
+          mergeQuantity: conflict.shoppingItem.quantity,
+          mergeExpiry: conflict.existingPantryItem.expiryDate ?? null,
+        };
+
+        return {
+          shoppingItemId: conflict.shoppingItem.id,
+          existingPantryId: conflict.existingPantryItem.id,
+          action: decision.action,
+          mergeQuantity: decision.mergeQuantity ?? conflict.shoppingItem.quantity,
+          mergeExpiry: decision.mergeExpiry ?? conflict.existingPantryItem.expiryDate ?? null,
+          newExpiry: decision.newExpiry ?? null,
+        };
+      });
+
+      const response = await confirmAddToPantry({
+        clean: cleanPayload,
+        decisions: conflictDecisionArray,
+      });
+
+      const added = response.data?.data?.added ?? cleanItems.length;
+      setConflictState({ isOpen: false, conflicts: [], cleanItems: [] });
+      await refreshItems();
+      showToast(`${added} items added to pantry`);
+    } catch (confirmError) {
+      setError(confirmError?.response?.data?.message || 'Unable to confirm pantry update');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -370,7 +539,6 @@ export default function ShoppingList() {
         variants={stagger}
         className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
       >
-        {/* Header section */}
         <motion.div variants={pageFade} className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="font-display text-4xl font-semibold tracking-tight text-[#111111] sm:text-5xl">
@@ -386,8 +554,8 @@ export default function ShoppingList() {
 
             {checkedCount > 0 ? (
               <>
-                <ActionButton icon={PackagePlus} onClick={handleAddToPantry}>
-                  Add to Pantry ({checkedCount})
+                <ActionButton icon={PackagePlus} onClick={handleAddToPantry} isActive>
+                  {actionLoading ? 'Working...' : `Add to Pantry (${checkedCount})`}
                 </ActionButton>
                 <ActionButton icon={Trash2} onClick={handleClearChecked} isDanger>
                   Clear Checked
@@ -397,12 +565,48 @@ export default function ShoppingList() {
           </div>
         </motion.div>
 
-        {/* Shopping cards */}
-        <motion.div variants={stagger} className="mt-6 grid gap-5">
-          {groupedItems.map(({ category, items: categoryItems }) => (
-            <CategoryCard key={category} category={category} items={categoryItems} onToggle={handleToggleItem} />
-          ))}
-        </motion.div>
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-[#f3e1cf] bg-[#fff4ea] px-4 py-3 text-sm font-medium text-[#6a4321]">
+            {error}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <motion.div variants={pageFade} className="mt-6 rounded-[30px] border border-[#ead9c7] bg-white/85 p-8 text-center text-sm text-[#6e6258] shadow-[0_18px_45px_rgba(17,17,17,0.06)]">
+            Loading shopping list...
+          </motion.div>
+        ) : (
+          <motion.article
+            variants={pageFade}
+            className="mt-6 rounded-[30px] border border-[#ead9c7] bg-white/85 shadow-[0_18px_45px_rgba(17,17,17,0.06)]"
+          >
+            <div className="border-b border-[#ead9c7] px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display text-xl font-semibold text-[#111111]">All Items</h2>
+                <span className="rounded-full bg-[#fff4ea] px-3 py-1 text-xs font-semibold text-[#8d5c24]">
+                  {items.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {items.length > 0 ? (
+                <motion.ul variants={stagger} initial="hidden" animate="visible" className="space-y-3">
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {items.map((item) => (
+                      <ShoppingItemRow key={item.id} item={item} onToggle={handleToggleItem} onDelete={handleDeleteItem} />
+                    ))}
+                  </AnimatePresence>
+                </motion.ul>
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-[#ead9c7] bg-[#fffaf4] px-5 py-8 text-center transition-all duration-300 hover:border-[#ff7a18]/30 hover:bg-[#fff8f0]">
+                  <p className="font-display text-lg font-semibold text-[#111111]">No shopping items yet</p>
+                  <p className="mt-1 text-sm text-[#6e6258]">Use Add Item to create your first entry.</p>
+                </div>
+              )}
+            </div>
+          </motion.article>
+        )}
       </motion.section>
 
       <AnimatePresence mode="wait">
@@ -418,51 +622,24 @@ export default function ShoppingList() {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence mode="wait">
-        {isPantryConfirmOpen ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-            <button
-              type="button"
-              className="absolute inset-0 bg-[#111111]/45 backdrop-blur-[2px]"
-              onClick={() => setIsPantryConfirmOpen(false)}
-              aria-label="Close confirmation dialog"
-            />
+      <ConflictResolutionModal
+        isOpen={conflictState.isOpen}
+        conflicts={conflictState.conflicts}
+        cleanItems={conflictState.cleanItems}
+        onConfirm={handleConfirmConflictResolution}
+        onClose={() => setConflictState({ isOpen: false, conflicts: [], cleanItems: [] })}
+      />
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 14 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 14 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-              className="relative z-10 w-full max-w-lg overflow-hidden rounded-[30px] border border-[#ead9c7] bg-[#fffaf4] shadow-[0_30px_80px_rgba(17,17,17,0.22)]"
-            >
-              <div className="border-b border-[#ead9c7] px-6 py-5 sm:px-8">
-                <h2 className="font-display text-2xl font-semibold text-[#111111] sm:text-3xl">
-                  Add to Pantry?
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#6e6258]">
-                  Are you sure you want to move the checked items into Pantry? They will be removed from the shopping list.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 px-6 py-6 sm:flex-row sm:justify-end sm:px-8">
-                <button
-                  type="button"
-                  onClick={() => setIsPantryConfirmOpen(false)}
-                  className="inline-flex items-center justify-center rounded-2xl border border-[#d8cab9] bg-white px-6 py-3 text-sm font-semibold text-[#111111] transition hover:bg-[#fff4ea]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmAddToPantry}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_30px_rgba(255,122,24,0.24)] transition-transform hover:-translate-y-0.5"
-                >
-                  <PackagePlus className="h-4 w-4" />
-                  Add to Pantry
-                </button>
-              </div>
-            </motion.div>
-          </div>
+      <AnimatePresence>
+        {toastMessage ? (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            className="fixed right-4 top-4 z-[60] rounded-2xl border border-[#f3e1cf] bg-[#fff4ea] px-4 py-3 text-sm font-medium text-[#6a4321] shadow-[0_18px_45px_rgba(17,17,17,0.12)]"
+          >
+            {toastMessage}
+          </motion.div>
         ) : null}
       </AnimatePresence>
     </div>

@@ -42,13 +42,15 @@ export default function RecipeDetails() {
   if (error) return <div className="p-6 text-sm text-[#c64545]">{error}</div>;
   if (!recipe) return null;
 
+  const recipeImage = recipe.image_url || cardIcon;
+
   return (
     <div className="min-h-screen bg-[#fff8f0] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto w-full max-w-7xl">
         <div className="mb-6 rounded-[20px] border border-[#ead9c7] bg-white p-6 shadow-[0_12px_28px_rgba(17,17,17,0.06)]">
           <div className="flex items-start gap-6">
             <div className="h-24 w-24 shrink-0 rounded-lg bg-[#fff4ea] p-4">
-              <img src={cardIcon} alt="icon" className="h-full w-full object-contain" />
+              <img src={recipeImage} alt={recipe.name || recipe.title || 'Recipe image'} className="h-full w-full object-contain" />
             </div>
             <div className="flex-1">
               <h1 className="text-3xl font-display font-semibold text-[#111111]">{recipe.name || recipe.title}</h1>

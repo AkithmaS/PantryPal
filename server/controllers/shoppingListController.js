@@ -167,3 +167,38 @@ export const addCheckedToPantry = async (req, res, next) => {
     }
 };
 
+export const preflightAddToPantry = async (req, res, next) => {
+    try {
+        const { checkedItemIds } = req.body;
+
+        if (!Array.isArray(checkedItemIds)) {
+            return res.status(400).json({
+                success: false,
+                message: 'checkedItemIds must be an array'
+            });
+        }
+
+        const result = await ShoppingList.preflightAddToPantry(req.user.id, checkedItemIds);
+
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const confirmAddToPantry = async (req, res, next) => {
+    try {
+        const result = await ShoppingList.confirmAddToPantry(req.user.id, req.body);
+
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
