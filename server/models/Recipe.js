@@ -1,5 +1,24 @@
 import db from '../config/db.js';
 
+const MAX_INLINE_IMAGE_LENGTH = 900000; // Increased to allow high-quality user images while still preventing extreme bloat
+
+function sanitizeSummaryRecipe(recipe) {
+    if (!recipe) {
+        return recipe;
+    }
+
+    const imageUrl = recipe.image_url;
+
+    if (typeof imageUrl === 'string' && imageUrl.startsWith('data:image/') && imageUrl.length > MAX_INLINE_IMAGE_LENGTH) {
+        return {
+            ...recipe,
+            image_url: null
+        };
+    }
+
+    return recipe;
+}
+
 class Recipe {
     static async create(userId, recipeData) {
         const client = await db.pool.connect();
@@ -23,12 +42,15 @@ class Recipe {
                 difficulty,
                 user_notes,
                 image_url,
-                nutrition
+                nutrition,
+                cooking_tips,
+                cookingTips
             } = recipeData;
 
             const recipeName = name || title;
             const prepTime = preparation_time ?? prep_time;
             const cookTime = cooking_time ?? cook_time;
+            const finalTips = cooking_tips || cookingTips || [];
 
             // Coerce times and servings to integers (DB expects INTEGER)
             const prepTimeInt = prepTime !== undefined && prepTime !== null ? Math.round(Number(prepTime)) : null;
@@ -54,8 +76,8 @@ class Recipe {
             const recipeResult = await client.query(
                 `
                 INSERT INTO recipes 
-                (user_id, name, description, instructions, preparation_time, cooking_time, servings, dietary_tags, cuisine_type, difficulty, user_notes, image_url)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                (user_id, name, description, instructions, preparation_time, cooking_time, servings, dietary_tags, cuisine_type, difficulty, user_notes, image_url, cooking_tips)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 RETURNING *
                 `,
                 [
@@ -70,7 +92,8 @@ class Recipe {
                     cuisine_type,
                     difficulty,
                     user_notes,
-                    image_url
+                    image_url,
+                    finalTips
                 ]
             );
 
@@ -238,16 +261,20 @@ class Recipe {
     query += ` LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, offset);
         const result = await db.query(query, params);
-        return result.rows;
+        return result.rows.map(sanitizeSummaryRecipe);
     }
 
-//recent recipes
     static async findRecentByUserId(userId, limit = 5) {
-        const result = await db.query(
-            'SELECT * FROM recipes WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
-            [userId, limit]
-        );
-        return result.rows;
+        try {
+            const result = await db.query(
+                'SELECT * FROM recipes WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
+                [userId, limit]
+            );
+            return (result.rows || []).map(sanitizeSummaryRecipe);
+        } catch (error) {
+            console.error('Error in findRecentByUserId model:', error);
+            return [];
+        }
     }
 
 //update recipe
@@ -267,8 +294,11 @@ class Recipe {
             dietary_tags,
             cuisine_type,
             difficulty,
-            user_notes
+            user_notes,
+            cooking_tips,
+            cookingTips
         } = updates;
+        const finalTips = cooking_tips || cookingTips;
         const client = await db.pool.connect();
         try {
             await client.query('BEGIN');
@@ -299,8 +329,9 @@ class Recipe {
                      dietary_tags = COALESCE($8, dietary_tags),
                      cuisine_type = COALESCE($9, cuisine_type),
                      difficulty = COALESCE($10, difficulty),
-                     user_notes = COALESCE($11, user_notes)
-                 WHERE user_id = $12 AND id = $13
+                     user_notes = COALESCE($11, user_notes),
+                     cooking_tips = COALESCE($12, cooking_tips)
+                 WHERE user_id = $13 AND id = $14
                  RETURNING *`,
                 [
                     name || title,
@@ -314,6 +345,7 @@ class Recipe {
                     cuisine_type,
                     difficulty,
                     user_notes,
+                    finalTips,
                     userId,
                     recipeId
                 ]
@@ -377,15 +409,12 @@ class Recipe {
         return result.rows[0];
     }
 
-    //get recipe stats
     static async getStats(userId) {
         const result = await db.query(
-            `SELECT
+            `SELECT 
                 (SELECT COUNT(*) FROM recipes WHERE user_id = $1) AS total_recipes,
                 (SELECT AVG(preparation_time) FROM recipes WHERE user_id = $1) AS avg_prep_time,
-                (SELECT AVG(cooking_time) FROM recipes WHERE user_id = $1) AS avg_cook_time
-            FROM recipes WHERE user_id = $1
-        `,
+                (SELECT AVG(cooking_time) FROM recipes WHERE user_id = $1) AS avg_cook_time`,
             [userId]
         );
         return result.rows[0];

@@ -5,6 +5,8 @@ import { Camera, Clock3, Pencil, Plus, Trash2, X } from 'lucide-react';
 import apiClient from '../../api/client.js';
 import cardIcon from '../../assets/icon.png';
 
+const MAX_INLINE_IMAGE_LENGTH = 800000;
+
 const fadeUp = {
 	hidden: { opacity: 0, y: 16 },
 	visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } },
@@ -63,7 +65,68 @@ function toInstructionRows(instructions = []) {
 }
 
 function getRecipeImage(recipe) {
-	return recipe?.image_url || cardIcon;
+	const imageUrl = recipe?.image_url;
+
+	if (typeof imageUrl === 'string' && imageUrl.startsWith('data:image/') && imageUrl.length > MAX_INLINE_IMAGE_LENGTH) {
+		return cardIcon;
+	}
+
+	return imageUrl || cardIcon;
+}
+
+function readFileAsDataUrl(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result || ''));
+		reader.onerror = () => reject(new Error('Unable to read image file'));
+		reader.readAsDataURL(file);
+	});
+}
+
+async function compressImageFile(file) {
+	const maxOutputLength = 450000;
+	const objectUrl = URL.createObjectURL(file);
+
+	try {
+		const image = await new Promise((resolve, reject) => {
+			const previewImage = new Image();
+			previewImage.onload = () => resolve(previewImage);
+			previewImage.onerror = () => reject(new Error('Unable to load image'));
+			previewImage.src = objectUrl;
+		});
+
+		let maxDimension = 1280;
+		let quality = 0.82;
+
+		for (let attempt = 0; attempt < 4; attempt += 1) {
+			const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+			const width = Math.max(1, Math.round(image.width * scale));
+			const height = Math.max(1, Math.round(image.height * scale));
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+
+			const context = canvas.getContext('2d');
+
+			if (!context) {
+				return await readFileAsDataUrl(file);
+			}
+
+			context.drawImage(image, 0, 0, width, height);
+			const compressedImage = canvas.toDataURL('image/jpeg', quality);
+
+			if (compressedImage.length <= maxOutputLength) {
+				return compressedImage;
+			}
+
+			maxDimension = Math.max(640, Math.round(maxDimension * 0.75));
+			quality = Math.max(0.5, quality - 0.12);
+		}
+
+		return await readFileAsDataUrl(file);
+	} finally {
+		URL.revokeObjectURL(objectUrl);
+	}
 }
 
 function formatRecipeTime(recipe) {
@@ -443,6 +506,8 @@ export default function AllRecipes() {
 			const params = {};
 			if (search) params.search = search;
 			if (cuisine) params.cuisine = cuisine;
+			params.sort_by = 'created_at';
+			params.sort_order = 'desc';
 
 			const res = await apiClient.get('/recipes', { params });
 			setRecipes(res.data?.data || []);
@@ -497,8 +562,11 @@ export default function AllRecipes() {
 				preparation_time: recipe.preparation_time ?? '',
 				cooking_time: recipe.cooking_time ?? '',
 				servings: recipe.servings ?? '',
-				image_url: recipe.image_url || '',
-				imagePreview: recipe.image_url || cardIcon,
+				image_url:
+					typeof recipe.image_url === 'string' && recipe.image_url.startsWith('data:image/') && recipe.image_url.length > MAX_INLINE_IMAGE_LENGTH
+						? ''
+						: recipe.image_url || '',
+				imagePreview: getRecipeImage(recipe),
 				imageChanged: false,
 				ingredients: toIngredientRows(recipe.ingredients),
 				instructions: toInstructionRows(recipe.instructions),
@@ -564,16 +632,17 @@ export default function AllRecipes() {
 			return;
 		}
 
-		const reader = new FileReader();
-		reader.onload = () => {
+		try {
+			const compressedImage = await compressImageFile(file);
 			setEditForm((current) => ({
 				...current,
-				image_url: String(reader.result || ''),
-				imagePreview: String(reader.result || ''),
+				image_url: compressedImage,
+				imagePreview: compressedImage,
 				imageChanged: true,
 			}));
-		};
-		reader.readAsDataURL(file);
+		} catch (error) {
+			setEditError(error?.message || 'Unable to process image');
+		}
 	};
 
 	const closeEditModal = (force = false) => {
@@ -693,7 +762,13 @@ export default function AllRecipes() {
 								<div className="relative h-36 overflow-hidden sm:h-40">
 									<div className="absolute inset-0 bg-gradient-to-r from-[#fff4ea] to-[#fffaf5]" />
 									<div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
-										<img src={getRecipeImage(recipe)} alt={recipe.name || recipe.title || 'Recipe image'} className="h-full w-full object-contain" />
+										<img
+											src={getRecipeImage(recipe)}
+											alt={recipe.name || recipe.title || 'Recipe image'}
+											loading="lazy"
+											decoding="async"
+											className="h-full w-full object-contain"
+										/>
 									</div>
 									<button
 										onClick={() => openEditRecipe(recipe.id)}
@@ -714,11 +789,6 @@ export default function AllRecipes() {
 										{recipe.cuisine_type ? <Badge tone="cuisine">{recipe.cuisine_type}</Badge> : null}
 										{recipe.difficulty ? <Badge tone="difficulty">{recipe.difficulty}</Badge> : null}
 										<Badge tone="dietary">{formatRecipeTime(recipe)}</Badge>
-									</div>
-
-									<div className="mt-3 rounded-2xl border border-[#ead9c7] bg-white/70 px-3 py-2 text-xs leading-5 text-[#6e6258]">
-										<p className="font-semibold text-[#111111]">Ingredients: {getIngredientPreview(recipe)}</p>
-										<p className="mt-1 line-clamp-1">Step: {getInstructionPreview(recipe)}</p>
 									</div>
 
 									<div className="mt-4 flex items-center justify-between gap-3">

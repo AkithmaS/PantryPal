@@ -157,11 +157,13 @@ export const getRecentRecipes = async (req, res, next) => {
     try {
         const limit = parseInt(req.query.limit) || 5;
 
+        console.log(`Fetching recent recipes for user ${req.user.id} with limit ${limit}`);
         const recipes =
             await Recipe.getRecentByUserId(
                 req.user.id,
                 limit
             );
+        console.log(`Found ${recipes ? recipes.length : 0} recent recipes`);
 
         res.json({
             success: true,

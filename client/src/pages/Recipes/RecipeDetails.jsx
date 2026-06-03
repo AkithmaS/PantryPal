@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Clock3, Users } from 'lucide-react';
+import { Clock3, Users, Sparkles, Info } from 'lucide-react';
 import apiClient from '../../api/client.js';
 import cardIcon from '../../assets/icon.png';
 
@@ -112,19 +112,24 @@ export default function RecipeDetails() {
               </div>
             </div>
 
-            {((recipe.cookingTips && recipe.cookingTips.length) || (recipe.cooking_tips && recipe.cooking_tips.length)) ? (
-              <div className="rounded-[12px] border border-[#f3e1cf] bg-[#fff4ea] p-5">
-                <h3 className="text-lg font-semibold text-[#111111]">Cooking Tips</h3>
-                <ul className="mt-3 space-y-2 text-sm text-[#4c4038]">
-                  {(recipe.cookingTips || recipe.cooking_tips || []).map((tip, i) => (
-                    <li key={i} className="flex gap-3 items-start">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-[#d45d10]" />
-                      <span>{tip}</span>
-                    </li>
+            {((recipe.cooking_tips && recipe.cooking_tips.length > 0) || (recipe.cookingTips && recipe.cookingTips.length > 0)) && (
+              <div className="rounded-[12px] border border-[#f3e1cf] bg-[#fffcf8] p-6 shadow-sm">
+                <div className="flex items-center gap-3 text-[#d45d10]">
+                  <Sparkles className="h-5 w-5" />
+                  <h3 className="font-display text-lg font-semibold">Cooking Tips</h3>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {(recipe.cooking_tips || recipe.cookingTips || []).map((tip, i) => (
+                    <div key={i} className="flex gap-3 items-start rounded-xl bg-[#fff4ea]/50 p-4">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[#d45d10] shadow-sm">
+                        <Info className="h-3.5 w-3.5" />
+                      </div>
+                      <p className="text-sm leading-6 text-[#4c4038]">{tip}</p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
-            ) : null}
+            )}
 
             {recipe.nutrition ? (
               <div className="rounded-[12px] border border-[#ead9c7] bg-white p-5">

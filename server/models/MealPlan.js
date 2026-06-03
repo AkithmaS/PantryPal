@@ -28,7 +28,12 @@ class MealPlan {
                 end`,
             [userId, startDate, endDate]
         );
-        return result.rows;
+        return (result.rows || []).map(row => {
+            if (row.image_url && typeof row.image_url === 'string' && row.image_url.startsWith('data:image/') && row.image_url.length > 900000) {
+                return { ...row, image_url: null };
+            }
+            return row;
+        });
     }
      //get weekly meal plan for a user
     static async getWeeklyPlan(userId, weekStart) {
@@ -53,7 +58,12 @@ class MealPlan {
             LIMIT $2`,
             [userId, limit]
         );
-        return result.rows;
+        return (result.rows || []).map(row => {
+            if (row.image_url && typeof row.image_url === 'string' && row.image_url.startsWith('data:image/') && row.image_url.length > 900000) {
+                return { ...row, image_url: null };
+            }
+            return row;
+        });
     }
 
     //delete meal plan entry
