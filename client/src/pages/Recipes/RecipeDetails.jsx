@@ -29,7 +29,19 @@ export default function RecipeDetails() {
         const res = await apiClient.get(`/recipes/${id}`);
         setRecipe(res.data?.data || null);
       } catch (err) {
-        setError(err?.response?.data?.message || 'Unable to load recipe');
+        // Fall back to community recipes stored in localStorage
+        try {
+          const stored = localStorage.getItem('communityRecipes');
+          const communityRecipes = stored ? JSON.parse(stored) : [];
+          const found = communityRecipes.find((r) => String(r.id) === String(id));
+          if (found) {
+            setRecipe(found);
+          } else {
+            setError(err?.response?.data?.message || 'Unable to load recipe');
+          }
+        } catch {
+          setError(err?.response?.data?.message || 'Unable to load recipe');
+        }
       } finally {
         setLoading(false);
       }

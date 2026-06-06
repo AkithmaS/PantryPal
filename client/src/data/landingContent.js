@@ -1,12 +1,12 @@
 import {
-  BarChart3,
   CalendarRange,
+  Clock,
   Refrigerator,
   RotateCcw,
   ShoppingCart,
   Sparkles,
-  Target,
   Users,
+  Share2,
 } from 'lucide-react';
 import addYourPantryImage from '../assets/add_your_pantry.jpg';
 import discoverRecipesImage from '../assets/discover_recepies.jpg';
@@ -21,7 +21,7 @@ export const featureCards = [
   {
     icon: Sparkles,
     title: 'AI Recipe Ideas',
-    description: 'Turn what you already own into fresh meal ideas in seconds.',
+    description: 'Turn what you already own into fresh meal ideas in seconds using AI.',
   },
   {
     icon: CalendarRange,
@@ -34,9 +34,9 @@ export const featureCards = [
     description: 'Generate focused grocery lists that prevent duplicate buying.',
   },
   {
-    icon: RotateCcw,
-    title: 'Waste Reduction',
-    description: 'Spot what needs attention first and make use of items before they spoil.',
+    icon: Share2,
+    title: 'Community Recipes',
+    description: 'Share your favorite recipes with other users and discover theirs.',
   },
   {
     icon: Users,
@@ -46,9 +46,9 @@ export const featureCards = [
 ];
 
 export const heroMetrics = [
-  { value: '24/7', label: 'Recipe inspiration ready', icon: Sparkles },
-  { value: '30%', label: 'Less food waste over time', icon: Target },
-  { value: '1 tap', label: 'To build a shopping list', icon: BarChart3 },
+  { value: '100+', label: 'AI-generated recipes available', icon: Sparkles },
+  { value: '4 hrs', label: 'Saved per week on meal planning', icon: Clock },
+  { value: '10k+', label: 'Community recipes shared', icon: Users },
 ];
 
 export const stepCards = [

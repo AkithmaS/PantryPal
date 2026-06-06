@@ -1,29 +1,54 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, ArrowLeft, CheckCircle2, LoaderCircle } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, LoaderCircle, Lock } from 'lucide-react';
 import apiClient from '../../api/client.js';
 import loginBackground from '../../assets/brooke-lark-HlNcigvUi4Q-unsplash.jpg';
 
-export default function ForgotPassword() {
-  const [email, setEmail] = useState('');
+export default function ResetPassword() {
+  const { token } = useParams();
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [show, setShow] = useState({ newPassword: false, confirmPassword: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const toggleShow = (field) => {
+    setShow((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!email.trim()) {
-      setError('Please enter your email address.');
+    if (!form.newPassword || !form.confirmPassword) {
+      setError('Both fields are required.');
+      return;
+    }
+    if (form.newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (form.newPassword !== form.confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await apiClient.post('/auth/request-password-reset', { email: email.trim() });
-      setSubmitted(true);
+      await apiClient.post('/auth/reset-password', {
+        token,
+        newPassword: form.newPassword,
+      });
+      setSuccess(true);
+      setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       setError(err?.response?.data?.message || 'Something went wrong. Please try again.');
     } finally {
@@ -34,7 +59,6 @@ export default function ForgotPassword() {
   return (
     <main className="min-h-screen bg-[#fff8f0] text-[#111111]">
       <section className="relative isolate min-h-screen overflow-hidden">
-        {/* Background */}
         <div className="absolute inset-0">
           <img
             src={loginBackground}
@@ -46,27 +70,24 @@ export default function ForgotPassword() {
         </div>
 
         <div className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-12 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_520px] lg:px-8 lg:py-16">
-          {/* Left side copy */}
           <div className="max-w-2xl pt-6 lg:pt-0">
             <p className="inline-flex items-center rounded-full border border-[#ff7a18]/20 bg-white/80 px-4 py-2 text-sm font-medium text-[#d45d10] shadow-[0_10px_24px_rgba(17,17,17,0.06)] backdrop-blur">
               PantryPal
             </p>
             <h1 className="mt-6 font-display text-5xl font-semibold tracking-tight text-[#111111] sm:text-6xl lg:text-7xl">
-              Forgot your
-              <span className="block text-[#d45d10]">password?</span>
+              Choose a new
+              <span className="block text-[#d45d10]">password.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-[#594f46] sm:text-xl">
-              No worries — enter your email and we'll send you a secure link to reset it.
+              Pick something strong and unique. You'll use it the next time you sign in.
             </p>
           </div>
 
-          {/* Right side card */}
           <div className="relative lg:justify-self-end">
             <div className="absolute inset-0 -z-10 rounded-[36px] bg-[#111111]/10 blur-3xl" />
             <div className="rounded-[36px] border border-white/35 bg-[#f5f0ea]/82 p-6 shadow-[0_28px_70px_rgba(17,17,17,0.18)] backdrop-blur-xl sm:p-8 lg:w-[480px]">
 
-              {submitted ? (
-                /* Success state */
+              {success ? (
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -77,61 +98,82 @@ export default function ForgotPassword() {
                     <CheckCircle2 className="h-10 w-10 text-[#ff7a18]" />
                   </div>
                   <h2 className="mt-6 font-display text-3xl font-semibold text-[#111111]">
-                    Check your inbox
+                    Password updated!
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#5d5148]">
-                    If <span className="font-semibold text-[#111111]">{email}</span> is
-                    registered with PantryPal, you'll receive a password reset link shortly.
+                    Your password has been reset successfully. Redirecting you to Sign In…
                   </p>
-                  <p className="mt-2 text-xs text-[#8b7d70]">
-                    Didn't get it? Check your spam folder or try again.
-                  </p>
-
-                  <div className="mt-8 flex flex-col gap-3 w-full">
-                    <button
-                      onClick={() => { setSubmitted(false); setEmail(''); }}
-                      className="w-full rounded-full border border-[#d8cab9] bg-white px-6 py-3 text-sm font-semibold text-[#111111] transition hover:bg-[#fff4ea]"
-                    >
-                      Try a different email
-                    </button>
-                    <Link
-                      to="/login"
-                      className="inline-flex items-center justify-center gap-2 w-full rounded-full bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(255,122,24,0.28)] transition hover:-translate-y-0.5"
-                    >
-                      Back to Sign In
-                    </Link>
-                  </div>
+                  <Link
+                    to="/login"
+                    className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-[#ff7a18] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(255,122,24,0.28)] transition hover:-translate-y-0.5"
+                  >
+                    Sign In now
+                  </Link>
                 </motion.div>
               ) : (
-                /* Form state */
                 <>
                   <div className="mb-8">
                     <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#d45d10]">
                       Account Recovery
                     </p>
                     <h2 className="mt-3 font-display text-3xl font-semibold text-[#111111] sm:text-4xl">
-                      Reset password
+                      New password
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#5d5148]">
-                      Enter the email linked to your account and we'll send you a reset link.
+                      Enter and confirm your new password below.
                     </p>
                   </div>
 
                   <form className="space-y-5" onSubmit={handleSubmit}>
+                    {/* New password */}
                     <label className="block">
                       <span className="mb-2 block text-sm font-medium text-[#4c4038]">
-                        Email address
+                        New password
                       </span>
                       <div className="relative">
-                        <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8f6a4b]" />
+                        <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8f6a4b]" />
                         <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Enter your email"
-                          autoComplete="email"
-                          className="w-full rounded-xl border border-[#e6dacf] bg-white py-3 pl-11 pr-4 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
+                          type={show.newPassword ? 'text' : 'password'}
+                          name="newPassword"
+                          value={form.newPassword}
+                          onChange={handleChange}
+                          placeholder="At least 8 characters"
+                          autoComplete="new-password"
+                          className="w-full rounded-xl border border-[#e6dacf] bg-white py-3 pl-11 pr-12 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
                         />
+                        <button
+                          type="button"
+                          onClick={() => toggleShow('newPassword')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#8f6a4b] transition hover:bg-[#fff4ea]"
+                        >
+                          {show.newPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </label>
+
+                    {/* Confirm password */}
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-[#4c4038]">
+                        Confirm password
+                      </span>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8f6a4b]" />
+                        <input
+                          type={show.confirmPassword ? 'text' : 'password'}
+                          name="confirmPassword"
+                          value={form.confirmPassword}
+                          onChange={handleChange}
+                          placeholder="Repeat your password"
+                          autoComplete="new-password"
+                          className="w-full rounded-xl border border-[#e6dacf] bg-white py-3 pl-11 pr-12 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleShow('confirmPassword')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#8f6a4b] transition hover:bg-[#fff4ea]"
+                        >
+                          {show.confirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                       </div>
                     </label>
 
@@ -149,20 +191,16 @@ export default function ForgotPassword() {
                       {isSubmitting ? (
                         <>
                           <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Sending…
+                          Updating…
                         </>
                       ) : (
-                        'Send Reset Link'
+                        'Reset Password'
                       )}
                     </button>
                   </form>
 
-                  <div className="mt-8 flex justify-center">
-                    <Link
-                      to="/login"
-                      className="inline-flex items-center gap-2 text-sm font-medium text-[#5d5148] transition hover:text-[#d45d10]"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
+                  <div className="mt-6 text-center">
+                    <Link to="/login" className="text-sm font-medium text-[#5d5148] transition hover:text-[#d45d10]">
                       Back to Sign In
                     </Link>
                   </div>

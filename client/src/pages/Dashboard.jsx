@@ -290,7 +290,7 @@ export default function Dashboard() {
     let isMounted = true;
 
     const loadDashboard = async () => {
-      const token = localStorage.getItem('pantrypal_token');
+      const token = sessionStorage.getItem('pantrypal_token');
 
       if (!token) {
         if (isMounted) {

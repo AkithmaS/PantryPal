@@ -36,6 +36,19 @@ app.use('/api/shopping-list', shoppingListRoutes);
 app.use('/api/shopping', shoppingListRoutes);
 app.use('/api/meal-plan', mealPlanRoutes);
 
+// Global error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    
+    const statusCode = err.statusCode || 500;
+    const message = err.message || 'Internal Server Error';
+    
+    res.status(statusCode).json({
+        success: false,
+        message: message,
+        ...(process.env.NODE_ENV === 'development' && { error: err.stack })
+    });
+});
 
 const basePort = Number(process.env.PORT) || 4000;
 const maxPort = basePort + 20;

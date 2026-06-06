@@ -54,32 +54,37 @@ class PantryItem {
 
     //get all pantry items for a user
     static async getAllByUserId(userId, filters = {}) {
-        let query = 'SELECT * FROM pantry_items WHERE user_id = $1';
-        const params = [userId];
-        let paramIndex = 2;
+        try {
+            let query = 'SELECT * FROM pantry_items WHERE user_id = $1';
+            const params = [userId];
+            let paramIndex = 2;
 
-        if (filters.category) {
-            query += ` AND category = $${paramIndex}`;
-            params.push(filters.category);
-            paramIndex++;
+            if (filters.category) {
+                query += ` AND category = $${paramIndex}`;
+                params.push(filters.category);
+                paramIndex++;
+            }
+
+            if (filters.is_running_low !== undefined) {
+                query += ` AND is_running_low = $${paramIndex}`;
+                params.push(filters.is_running_low);
+                paramIndex++;
+            }
+
+            if (filters.search) {
+                query += ` AND name ILIKE $${paramIndex}`;
+                params.push(`%${filters.search}%`);
+                paramIndex++;
+            }
+
+            query += ' ORDER BY created_at DESC';
+
+            const results = await db.query(query, params);
+            return results.rows || [];
+        } catch (error) {
+            console.error('getAllByUserId error:', error.message);
+            throw error;
         }
-
-        if (filters.is_running_low !== undefined) {
-            query += ` AND is_running_low = $${paramIndex}`;
-            params.push(filters.is_running_low);
-            paramIndex++;
-        }
-
-        if (filters.search) {
-            query += ` AND name ILIKE $${paramIndex}`;
-            params.push(`%${filters.search}%`);
-            paramIndex++;
-        }
-
-        query += ' ORDER BY created_at DESC';
-
-        const results = await db.query(query, params);
-        return results.rows;
     }
 
     //get items expiring soon(within 7 days)

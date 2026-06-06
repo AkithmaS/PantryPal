@@ -44,7 +44,7 @@ export default function NavBar() {
 
 	const handleSignOut = () => {
 		signOut();
-		localStorage.removeItem('pantrypal_token');
+		sessionStorage.removeItem('pantrypal_token');
 		navigate('/login');
 	};
 

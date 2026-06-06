@@ -10,6 +10,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import apiClient from '../api/client.js';
 
 const pageFade = {
   hidden: { opacity: 0, y: 18 },
@@ -120,7 +121,7 @@ function PasswordField({ label, name, value, onChange, visible, onToggleVisible,
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [profileForm, setProfileForm] = useState({ name: '', email: '' });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -164,7 +165,7 @@ export default function Settings() {
     setPasswordForm((current) => ({ ...current, [name]: value }));
   };
 
-  const handleSaveProfile = (event) => {
+  const handleSaveProfile = async (event) => {
     event.preventDefault();
 
     if (!profileForm.name.trim() || !profileForm.email.trim()) {
@@ -175,13 +176,29 @@ export default function Settings() {
     setIsSavingProfile(true);
     setProfileMessage({ type: '', text: '' });
 
-    window.setTimeout(() => {
-      setIsSavingProfile(false);
+    try {
+      const res = await apiClient.put('/users/profile', {
+        name: profileForm.name.trim(),
+        email: profileForm.email.trim(),
+      });
+
+      const updatedUser = res.data?.data?.user;
+      if (updatedUser) {
+        updateUser(updatedUser);
+      }
+
       setProfileMessage({ type: 'success', text: 'Profile saved successfully.' });
-    }, 900);
+    } catch (err) {
+      setProfileMessage({
+        type: 'error',
+        text: err?.response?.data?.message || 'Failed to save profile.',
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleChangePassword = (event) => {
+  const handleChangePassword = async (event) => {
     event.preventDefault();
 
     const { currentPassword, newPassword, confirmNewPassword } = passwordForm;
@@ -204,11 +221,18 @@ export default function Settings() {
     setIsChangingPassword(true);
     setPasswordMessage({ type: '', text: '' });
 
-    window.setTimeout(() => {
-      setIsChangingPassword(false);
+    try {
+      await apiClient.put('/users/password', { currentPassword, newPassword });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
       setPasswordMessage({ type: 'success', text: 'Password updated successfully.' });
-    }, 900);
+    } catch (err) {
+      setPasswordMessage({
+        type: 'error',
+        text: err?.response?.data?.message || 'Failed to update password.',
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   return (

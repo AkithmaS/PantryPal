@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS recipes (
     dietary_tags TEXT[] DEFAULT '{}',
     user_notes TEXT,
     image_url TEXT,
+    cooking_tips TEXT[] DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

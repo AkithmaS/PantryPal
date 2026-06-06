@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import apiClient from '../api/client.js';
+import { useAuth } from './AuthContext.jsx';
 
 const PantryContext = createContext(null);
 
@@ -14,6 +15,7 @@ const normalizeItem = (item) => ({
 });
 
 export function PantryProvider({ children }) {
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,8 +35,9 @@ export function PantryProvider({ children }) {
   };
 
   useEffect(() => {
+    console.log('PantryContext - user.id:', user?.id, '- fetching items');
     fetchItems();
-  }, []);
+  }, [user?.id]);
 
   const value = useMemo(
     () => ({

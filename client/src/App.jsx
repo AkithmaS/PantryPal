@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
 import ForgotPassword from './pages/Auth/ForgotPassword';
+import ResetPassword from './pages/Auth/ResetPassword';
 import AIGenerator from './pages/Recipes/AIGenerator';
 import ManualAdd from './pages/Recipes/ManualAdd';
 import SearchRecipes from './pages/Recipes/CommunityRecipes';
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route
         path="/dashboard"
         element={
