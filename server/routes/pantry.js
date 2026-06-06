@@ -10,6 +10,8 @@ router.use(authMiddleware);
 router.get('/', pantryController.getPantryItems);
 router.get('/stats', pantryController.getPantryStats);
 router.get('/expiring-soon', pantryController.getExpiringSoonItems);
+router.get('/expired', pantryController.getExpiredItems);
+router.delete('/expired', pantryController.deleteExpiredItems);
 router.post('/', pantryController.addPantryItem);
 router.put('/:id', pantryController.updatePantryItem);
 router.delete('/:id', pantryController.deletePantryItem);

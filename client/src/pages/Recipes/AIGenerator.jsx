@@ -26,7 +26,7 @@ const stagger = {
 };
 
 const dietOptions = ['None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Keto', 'Paleo'];
-const cuisineOptions = ['Italian', 'Mexican', 'Sri Lankan', 'Indian', 'Chineese', 'Thai', 'French', 'Japanese','Korean', 'Middle Eastern'];
+const cuisineOptions = ['Italian', 'Mexican', 'Sri Lankan', 'Indian', 'Chineese', 'Thai', 'French', 'Japanese', 'Korean', 'Middle Eastern'];
 const cookingTimeOptions = [
   { value: 'any', label: 'Any' },
   { value: 'short', label: 'Under 30 mins' },
@@ -229,8 +229,8 @@ export default function AIGenerator() {
       const instructionsPayload = Array.isArray(generatedSource.instructions)
         ? generatedSource.instructions
         : generatedSource.instructions
-        ? [generatedSource.instructions]
-        : [];
+          ? [generatedSource.instructions]
+          : [];
 
       const payload = {
         name: generatedSource.name,
@@ -300,7 +300,7 @@ export default function AIGenerator() {
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    
+
                     <h1 className="font-display text-3xl font-semibold tracking-tight text-[#111111] sm:text-4xl">
                       AI Recipe Generator
                     </h1>

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client.js';
 
 const pageFade = {
@@ -53,10 +54,27 @@ function formatApiDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
+} 
 
 function normalizeMealType(mealType) {
   return String(mealType || '').toLowerCase();
+}
+
+function getWeekSelectionLabel(offset) {
+  if (offset === 0) {
+    return 'This Week';
+  }
+
+  if (offset === -1) {
+    return 'Last Week';
+  }
+
+  if (offset === 1) {
+    return 'Next Week';
+  }
+
+  const absOffset = Math.abs(offset);
+  return offset > 0 ? `${absOffset} Weeks Ahead` : `${absOffset} Weeks Ago`;
 }
 
 function PlannerActionButton({ children, isActive, onClick, icon: Icon, iconPosition = 'left' }) {
@@ -79,12 +97,13 @@ function PlannerActionButton({ children, isActive, onClick, icon: Icon, iconPosi
   );
 }
 
-function MealCard({ meal, onRemove }) {
+function MealCard({ meal, onRemove, onClick }) {
   return (
     <motion.div
       whileHover={{ y: -4, scale: 1.02 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="group relative overflow-hidden rounded-2xl border border-[#ead9c7] bg-[#fff4ea] px-3 py-3 text-left shadow-[0_10px_24px_rgba(17,17,17,0.05)] transition-all duration-300"
+      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-[#ead9c7] bg-[#fff4ea] px-3 py-3 text-left shadow-[0_10px_24px_rgba(17,17,17,0.05)] transition-all duration-300 hover:border-[#ff7a18] hover:shadow-[0_16px_30px_rgba(255,122,24,0.15)]"
+      onClick={onClick}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,122,24,0.14),_transparent_34%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div className="relative flex items-start justify-between gap-3">
@@ -95,7 +114,10 @@ function MealCard({ meal, onRemove }) {
         {onRemove ? (
           <button
             type="button"
-            onClick={onRemove}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
             className="rounded-full p-1 text-[#8b7d70] transition hover:bg-[#fff8f0] hover:text-[#d45d10]"
             aria-label="Remove meal"
           >
@@ -140,6 +162,7 @@ function PlannerStatCard({ label, value, helper }) {
 }
 
 export default function MealPlan() {
+  const navigate = useNavigate();
   const [weekOffset, setWeekOffset] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -287,7 +310,7 @@ export default function MealPlan() {
               Previous Week
             </PlannerActionButton>
             <PlannerActionButton isActive onClick={() => setWeekOffset(0)}>
-              This Week
+              {getWeekSelectionLabel(weekOffset)}
             </PlannerActionButton>
             <PlannerActionButton icon={ChevronRight} iconPosition="right" onClick={() => setWeekOffset((current) => current + 1)}>
               Next Week
@@ -435,7 +458,15 @@ export default function MealPlan() {
                           className="group border-b border-r border-[#ead9c7] bg-white/75 p-4 transition-colors duration-300 last:border-r-0 hover:bg-[#fffdf8]"
                         >
                           <div className="flex min-h-[118px] items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]">
-                            {meal ? <MealCard meal={meal} onRemove={() => handleRemoveMeal(meal.id)} /> : <EmptyCellAction onClick={() => openMealForm(day.date, mealType)} />}
+                            {meal ? (
+                              <MealCard
+                                meal={meal}
+                                onRemove={() => handleRemoveMeal(meal.id)}
+                                onClick={() => navigate(`/recipes/${meal.recipe_id}`)}
+                              />
+                            ) : (
+                              <EmptyCellAction onClick={() => openMealForm(day.date, mealType)} />
+                            )}
                           </div>
                         </div>
                       );

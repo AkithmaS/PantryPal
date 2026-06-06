@@ -17,20 +17,25 @@ export const generateRecipe = async (req, res, next) => {
             cookingTime = 'medium'
         } = req.body;
 
-        let finalIngredients = [...ingredients];
+        const manualIngredients = ingredients
+            .map((ingredient) => String(ingredient || '').trim())
+            .filter(Boolean);
+
+        let pantryIngredients = [];
+        let finalIngredients = [...manualIngredients];
 
         // Add pantry ingredients if requested
         if (usePantryIngredients) {
             const pantryItems = await PantryItem.getAllByUserId(req.user.id);
 
-            const pantryIngredientNames = pantryItems.map(item =>
-                item.name.toLowerCase()
-            );
+            pantryIngredients = pantryItems
+                .map((item) => String(item.name || '').trim())
+                .filter(Boolean);
 
             finalIngredients = [
                 ...new Set([
                     ...finalIngredients,
-                    ...pantryIngredientNames
+                    ...pantryIngredients
                 ])
             ];
         }
@@ -47,6 +52,8 @@ export const generateRecipe = async (req, res, next) => {
         // Generate recipe using Gemini AI
         const recipeData = await generateRecipeAI({
             ingredients: finalIngredients,
+            manualIngredients,
+            pantryIngredients,
             dietaryRestrictions: dietaryPreferences,
             cuisineType,
             servingSize,
@@ -150,11 +157,13 @@ export const getRecentRecipes = async (req, res, next) => {
     try {
         const limit = parseInt(req.query.limit) || 5;
 
+        console.log(`Fetching recent recipes for user ${req.user.id} with limit ${limit}`);
         const recipes =
             await Recipe.getRecentByUserId(
                 req.user.id,
                 limit
             );
+        console.log(`Found ${recipes ? recipes.length : 0} recent recipes`);
 
         res.json({
             success: true,

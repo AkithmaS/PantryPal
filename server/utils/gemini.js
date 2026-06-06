@@ -14,66 +14,84 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 export const generateRecipe = async ({
-    ingredients,
-    dietaryRestrictions = [],
-    cuisineType = 'any',
-    servingSize = 4,
-    cookingTime = 'medium'
+        ingredients,
+        manualIngredients = [],
+        pantryIngredients = [],
+        dietaryRestrictions = [],
+        cuisineType = 'any',
+        servingSize = 4,
+        cookingTime = 'medium'
 }) => {
 
-    const dietaryInfo =
-        dietaryRestrictions.length > 0
-            ? `Dietary restrictions: ${dietaryRestrictions.join(', ')}.`
-            : 'No dietary restrictions.';
+        const dietaryInfo =
+                dietaryRestrictions.length > 0
+                        ? `Dietary restrictions: ${dietaryRestrictions.join(', ')}.`
+                        : 'No dietary restrictions.';
 
-    const timeGuide = {
-        short: 'under 30 minutes',
-        medium: '30-60 minutes',
-        long: 'over 60 minutes'
-    };
+        const timeGuide = {
+                short: 'under 30 minutes',
+                medium: '30-60 minutes',
+                long: 'over 60 minutes'
+        };
 
-    const prompt = `
+        const manualList = manualIngredients.length > 0
+                ? manualIngredients.join(', ')
+                : 'None provided';
+
+        const pantryList = pantryIngredients.length > 0
+                ? pantryIngredients.join(', ')
+                : 'None provided';
+
+        const prompt = `
 Generate a detailed recipe with the following requirements:
 
-Ingredients Available: ${ingredients.join(', ')}.
+User-added ingredients: ${manualList}.
+Pantry ingredients: ${pantryList}.
+Combined ingredients available: ${ingredients.join(', ')}.
 ${dietaryInfo}
 
 Cuisine type: ${cuisineType}.
 Serving size: ${servingSize}.
 Cooking time: ${timeGuide[cookingTime] || 'any'}.
 
+Important instructions:
+- Use every user-added ingredient listed above.
+- Use pantry ingredients together with the user-added ingredients whenever possible.
+- Do not omit user-added ingredients from the final recipe.
+- If an ingredient is not ideal for the main dish, incorporate it meaningfully rather than dropping it.
+
 Please provide the recipe in the following JSON format:
 
 {
-  "name": "Recipe Name",
-  "description": "Brief description of the recipe",
-  "cuisineType": "${cuisineType}",
-  "difficulty": "easy/medium/hard",
-  "prepTime": "time in minutes",
-  "cookTime": "time in minutes",
-  "servingSize": ${servingSize},
-  "ingredients": [
-    {
-      "name": "ingredient name",
-      "quantity": "amount",
-      "unit": "unit"
-    }
-  ],
-  "instructions": [
-    "Step 1 instruction",
-    "Step 2 instruction"
-  ],
-  "dietaryInfo": [
-    "vegetarian",
-    "gluten-free"
-  ],
-  "nutritionalInfo": {
-    "calories": "calories per serving"
-  },
-  "cookingTips": [
-    "Tip 1",
-    "Tip 2"
-  ]
+    "name": "Recipe Name",
+    "description": "Brief description of the recipe",
+    "cuisineType": "${cuisineType}",
+    "difficulty": "easy/medium/hard",
+    "prepTime": "time in minutes",
+    "cookTime": "time in minutes",
+    "servingSize": ${servingSize},
+    "ingredients": [
+        {
+            "name": "ingredient name",
+            "quantity": "amount",
+            "unit": "unit"
+        }
+    ],
+    "instructions": [
+        "Step 1 instruction",
+        "Step 2 instruction"
+    ],
+    "dietaryInfo": [
+        "vegetarian",
+        "gluten-free"
+    ],
+    "nutritionalInfo": {
+        "calories": "calories per serving"
+    },
+    "cookingTips": [
+        "Tip 1",
+        "Tip 2"
+    ]
 }
 
 Make sure the recipe is creative and not a common one.

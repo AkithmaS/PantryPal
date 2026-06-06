@@ -8,6 +8,7 @@ export default function PantryAddItem({
 	formData,
 	onChange,
 	categories,
+	units = [],
 	title = 'Add Pantry Item',
 	subtitle = 'Keep your pantry list organized and up to date.',
 	submitLabel = 'Add Item',
@@ -88,13 +89,11 @@ export default function PantryAddItem({
 									onChange={onChange}
 									className="w-full rounded-2xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/15"
 								>
-									<option>Pieces</option>
-									<option>Grams</option>
-									<option>Kilograms</option>
-									<option>Milliliters</option>
-									<option>Liters</option>
-									<option>Cans</option>
-									<option>Packs</option>
+									{units.map(({ value, label }) => (
+										<option key={value} value={value}>
+											{label}
+										</option>
+									))}
 								</select>
 							</label>
 						</div>

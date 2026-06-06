@@ -1,17 +1,10 @@
 import { Link } from 'react-router-dom';
 import { FaFacebookF, FaInstagram, FaYoutube } from 'react-icons/fa6';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 import logoIcon from '../assets/icon.png';
 
 const footerLinks = {
-	Explore: [
-		{ label: 'Dashboard', to: '/dashboard' },
-		{ label: 'Pantry', to: '/pantry' },
-		{ label: 'Recipes', to: '/find-recipe/search' },
-		{ label: 'Meal Planner', to: '/meal-plan' },
-	],
 	Account: [
-		{ label: 'Settings', to: '/settings' },
 		{ label: 'Sign In', to: '/login' },
 		{ label: 'Create Account', to: '/signup' },
 	],
@@ -51,7 +44,7 @@ export default function Footer() {
 	return (
 		<footer className="border-t border-[#ead9c7] bg-[linear-gradient(180deg,#fff8f0_0%,#fff3e6_100%)]">
 			<div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-				<div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_1fr] lg:gap-12">
+				<div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr_1fr] lg:gap-12">
 					<div>
 						<Link to="/" className="inline-flex items-center gap-3">
 							<span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white/80 shadow-[0_12px_28px_rgba(17,17,17,0.08)]">
@@ -81,7 +74,6 @@ export default function Footer() {
 						</div>
 					</div>
 
-					<FooterColumn title="Explore" links={footerLinks.Explore} />
 					<FooterColumn title="Account" links={footerLinks.Account} />
 
 					<div>

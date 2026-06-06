@@ -6,7 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem('pantrypal_user');
+      const stored = sessionStorage.getItem('pantrypal_user');
       return stored ? JSON.parse(stored) : null;
     } catch (error) {
       return null;
@@ -16,19 +16,20 @@ export function AuthProvider({ children }) {
   const signIn = (nextUser) => {
     setUser(nextUser);
     if (nextUser) {
-      localStorage.setItem('pantrypal_user', JSON.stringify(nextUser));
+      sessionStorage.setItem('pantrypal_user', JSON.stringify(nextUser));
     } else {
-      localStorage.removeItem('pantrypal_user');
+      sessionStorage.removeItem('pantrypal_user');
     }
   };
 
   const signOut = () => {
     setUser(null);
-    localStorage.removeItem('pantrypal_user');
+    sessionStorage.removeItem('pantrypal_user');
+    sessionStorage.removeItem('pantrypal_token');
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('pantrypal_token');
+    const token = sessionStorage.getItem('pantrypal_token');
     if (!token || user) {
       return;
     }
@@ -42,7 +43,7 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         signOut();
-        localStorage.removeItem('pantrypal_token');
+        sessionStorage.removeItem('pantrypal_token');
       }
     };
 
@@ -55,6 +56,12 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       signIn,
       signOut,
+      // Merge updated fields into the current user object and persist to sessionStorage
+      updateUser: (updatedFields) => {
+        const merged = { ...user, ...updatedFields };
+        setUser(merged);
+        sessionStorage.setItem('pantrypal_user', JSON.stringify(merged));
+      },
     }),
     [user]
   );

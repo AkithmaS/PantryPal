@@ -58,6 +58,38 @@ export const getExpiringSoonItems = async (req, res, next) => {
     }
 };
 
+// Get expired items
+export const getExpiredItems = async (req, res, next) => {
+    try {
+        const items = await pantryitem.getExpired(req.user.id);
+
+        res.json({
+            success: true,
+            data: items
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch expired items' });
+    }
+};
+
+// Delete expired items
+export const deleteExpiredItems = async (req, res, next) => {
+    try {
+        const result = await pantryitem.deleteExpired(req.user.id);
+
+        res.json({
+            success: true,
+            data: {
+                deleted: result.count,
+                items: result.items
+            }
+        });
+    } catch (error) {
+        console.error('deleteExpiredItems error:', error);
+        res.status(500).json({ error: 'Failed to delete expired items' });
+    }
+};
+
 // Add pantry item
 export const addPantryItem = async (req, res, next) => {
     try {

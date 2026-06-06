@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   Camera,
   CheckCircle2,
@@ -14,7 +15,12 @@ import {
   Sparkles,
   Trash2,
   UtensilsCrossed,
+  X,
 } from 'lucide-react';
+import apiClient from '../../api/client.js';
+import cardIcon from '../../assets/icon.png';
+
+const MAX_INLINE_IMAGE_LENGTH = 800000;
 
 const fadeUp = {
   hidden: { opacity: 0, y: 22 },
@@ -26,27 +32,62 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.08 } },
 };
 
-const cuisineOptions = ['Italian', 'Mediterranean', 'Asian', 'Mexican', 'American'];
-const dietaryOptions = ['None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free'];
-const difficultyOptions = ['Easy', 'Medium', 'Hard'];
+const cuisineOptions = ['Italian', 'Mediterranean', 'Asian', 'Mexican', 'American', 'Indian', 'French', 'Japanese', 'Other'];
 
-const initialIngredients = [
-  { id: 1, name: 'Extra Virgin Olive Oil', qty: '2', unit: 'tbsp', required: false },
-  { id: 2, name: 'Fresh Basil Leaves', qty: '1', unit: 'bunch', required: true },
-];
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Unable to read image file'));
+    reader.readAsDataURL(file);
+  });
+}
 
-const initialSteps = [
-  {
-    id: 1,
-    title: 'Sauté aromatics',
-    details: 'Heat olive oil in a large pan over medium heat. Add chopped garlic and onions until fragrant.',
-  },
-  {
-    id: 2,
-    title: 'Simmer the sauce',
-    details: 'Pour in the crushed tomatoes and season with salt and pepper. Let the sauce reduce until rich.',
-  },
-];
+async function compressImageFile(file) {
+  const maxOutputLength = 450000;
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const previewImage = new Image();
+      previewImage.onload = () => resolve(previewImage);
+      previewImage.onerror = () => reject(new Error('Unable to load image'));
+      previewImage.src = objectUrl;
+    });
+
+    let maxDimension = 1280;
+    let quality = 0.82;
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        return await readFileAsDataUrl(file);
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      const compressedImage = canvas.toDataURL('image/jpeg', quality);
+
+      if (compressedImage.length <= maxOutputLength) {
+        return compressedImage;
+      }
+
+      maxDimension = Math.max(640, Math.round(maxDimension * 0.75));
+      quality = Math.max(0.5, quality - 0.12);
+    }
+
+    return await readFileAsDataUrl(file);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 function SectionHeader({ icon: Icon, title, helper }) {
   return (
@@ -85,20 +126,6 @@ function FieldShell({ children, className = '' }) {
   );
 }
 
-function ProgressRow({ label, value, percent }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-4 text-sm">
-        <span className="font-medium text-[#4c4038]">{label}</span>
-        <span className="font-semibold text-[#111111]">{value}</span>
-      </div>
-      <div className="mt-2 h-2 rounded-full bg-[#ece0d5]">
-        <div className="h-2 rounded-full bg-[#3f725d]" style={{ width: `${percent}%` }} />
-      </div>
-    </div>
-  );
-}
-
 function IngredientRow({ item, onChange, onRemove }) {
   return (
     <div className="grid grid-cols-12 gap-3 rounded-2xl border border-[#ead9c7] bg-[#fffaf5] px-3 py-3 transition hover:border-[#ff7a18]/30">
@@ -131,21 +158,7 @@ function IngredientRow({ item, onChange, onRemove }) {
           placeholder="tbsp"
         />
       </div>
-      <div className="col-span-4 flex items-center justify-between gap-3 md:col-span-3">
-        <div className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d5c24] md:block">Req.</div>
-        <button
-          type="button"
-          onClick={() => onChange(item.id, 'required', !item.required)}
-          className={[
-            'inline-flex h-9 w-9 items-center justify-center rounded-full border transition',
-            item.required
-              ? 'border-[#d45d10] bg-[#fff1e3] text-[#d45d10]'
-              : 'border-[#e3d8cb] bg-white text-[#9b8f82] hover:border-[#ff7a18]/35 hover:text-[#d45d10]',
-          ].join(' ')}
-          aria-label={item.required ? 'Mark ingredient as optional' : 'Mark ingredient as required'}
-        >
-          <Lock className="h-4 w-4" />
-        </button>
+      <div className="col-span-4 flex items-center justify-end gap-3 md:col-span-3">
         <button
           type="button"
           onClick={() => onRemove(item.id)}
@@ -197,58 +210,128 @@ function StepCard({ step, index, onChange, onRemove }) {
 }
 
 export default function ManualAdd() {
-  const [recipeTitle, setRecipeTitle] = useState("Grandma's Secret Sunday Sauce");
+  const navigate = useNavigate();
+  const [recipeTitle, setRecipeTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [cuisine, setCuisine] = useState('Italian');
-  const [dietaryLabel, setDietaryLabel] = useState('Vegetarian');
-  const [difficulty, setDifficulty] = useState('Medium');
-  const [prepTime, setPrepTime] = useState('15');
-  const [cookTime, setCookTime] = useState('45');
-  const [servings, setServings] = useState(4);
-  const [ingredients, setIngredients] = useState(initialIngredients);
-  const [steps, setSteps] = useState(initialSteps);
-  const [nutritionOpen, setNutritionOpen] = useState(false);
-  const [tipsOpen, setTipsOpen] = useState(false);
-  const [publishPromptOpen, setPublishPromptOpen] = useState(false);
+  const [prepTime, setPrepTime] = useState('');
+  const [cookTime, setCookTime] = useState('');
+  const [servings, setServings] = useState(2);
+  const [ingredients, setIngredients] = useState([
+    { id: 'ing-1', name: '', qty: '', unit: '', required: false },
+  ]);
+  const [steps, setSteps] = useState([{ id: 'step-1', title: '', details: '' }]);
+  const [cookingTips, setCookingTips] = useState(['']);
+  const [imagePayload, setImagePayload] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const updateIngredient = (id, key, value) => {
-    setIngredients((currentIngredients) =>
-      currentIngredients.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
+    setIngredients((current) =>
+      current.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
     );
   };
 
   const addIngredient = () => {
-    setIngredients((currentIngredients) => [
-      ...currentIngredients,
-      { id: Date.now(), name: '', qty: '', unit: '', required: false },
+    setIngredients((current) => [
+      ...current,
+      { id: `ing-${Math.random().toString(36).substr(2, 9)}`, name: '', qty: '', unit: '', required: false },
     ]);
   };
 
   const removeIngredient = (id) => {
-    setIngredients((currentIngredients) => currentIngredients.filter((item) => item.id !== id));
+    if (ingredients.length > 1) {
+      setIngredients((current) => current.filter((item) => item.id !== id));
+    }
   };
 
   const updateStep = (id, key, value) => {
-    setSteps((currentSteps) =>
-      currentSteps.map((step) => (step.id === id ? { ...step, [key]: value } : step)),
+    setSteps((current) =>
+      current.map((step) => (step.id === id ? { ...step, [key]: value } : step)),
     );
   };
 
   const addStep = () => {
-    setSteps((currentSteps) => [...currentSteps, { id: Date.now(), title: '', details: '' }]);
+    setSteps((current) => [...current, { id: `step-${Math.random().toString(36).substr(2, 9)}`, title: '', details: '' }]);
+  };
+
+  const updateTip = (index, value) => {
+    setCookingTips((current) => {
+      const next = [...current];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  const addTip = () => {
+    setCookingTips((current) => [...current, '']);
+  };
+
+  const removeTip = (index) => {
+    if (cookingTips.length > 1) {
+      setCookingTips((current) => current.filter((_, i) => i !== index));
+    }
   };
 
   const removeStep = (id) => {
-    setSteps((currentSteps) => currentSteps.filter((step) => step.id !== id));
+    if (steps.length > 1) {
+      setSteps((current) => current.filter((step) => step.id !== id));
+    }
   };
 
-  const ingredientProgress = Math.min(
-    100,
-    Math.round((ingredients.filter((item) => item.name.trim()).length / 10) * 100),
-  );
-  const instructionProgress = Math.min(
-    100,
-    Math.round((steps.filter((step) => step.details.trim()).length / 4) * 100),
-  );
+  const handleImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImageFile(file);
+      setImagePayload(compressed);
+      setImagePreview(compressed);
+    } catch (err) {
+      setError('Unable to process image. Please try another one.');
+    }
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!recipeTitle.trim()) {
+      setError('Please enter a recipe title.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setError('');
+
+      const payload = {
+        name: recipeTitle.trim(),
+        description: description.trim(),
+        cuisine_type: cuisine,
+        preparation_time: prepTime === '' ? null : Number(prepTime),
+        cooking_time: cookTime === '' ? null : Number(cookTime),
+        servings: Number(servings),
+        image_url: imagePayload,
+        ingredients: ingredients
+          .filter((ing) => ing.name.trim())
+          .map((ing) => ({
+            name: ing.name.trim(),
+            quantity: ing.qty || '1',
+            unit: ing.unit.trim(),
+          })),
+        instructions: steps
+          .filter((s) => s.details.trim())
+          .map((s) => (s.title ? `${s.title}: ${s.details}` : s.details)),
+        cooking_tips: cookingTips.filter((tip) => tip.trim()),
+      };
+
+      await apiClient.post('/recipes', payload);
+      navigate('/recipes/all');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Unable to save recipe. Please check all fields.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#fff8f0] px-4 py-6 text-[#111111] sm:px-6 lg:px-8 lg:py-8">
@@ -265,355 +348,191 @@ export default function ManualAdd() {
           className="overflow-hidden rounded-[34px] border border-[#ead9c7] bg-white/88 shadow-[0_28px_70px_rgba(17,17,17,0.08)] backdrop-blur"
         >
           <div className="border-b border-[#f0e3d6] px-5 py-5 sm:px-6 sm:py-6">
-            <div className="flex flex-wrap items-center gap-4">
-              
-              <div className="min-w-0 flex-1">
-                
-                <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-[#111111] sm:text-4xl lg:text-5xl">
-                  Create New Recipe
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-7 text-[#5d5148] sm:text-base">
-                  Document your culinary masterpiece with precise details, polished steps, and PantryPal’s warm green and orange palette.
-                </p>
-              </div>
-            </div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-[#111111] sm:text-4xl">
+              Create New Recipe
+            </h1>
+            <p className="mt-2 text-sm text-[#5d5148]">
+              Fill in the details below to add a new recipe to your collection.
+            </p>
           </div>
 
-          <div className="grid gap-6 px-5 py-5 sm:px-6 sm:py-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
-            <div className="space-y-6">
-              <motion.div variants={fadeUp} className="rounded-[30px] border border-[#ead9c7] bg-white/85 p-5 shadow-[0_18px_45px_rgba(17,17,17,0.06)] sm:p-6">
-                <SectionHeader
-                  icon={Info}
-                  title="Basic Info"
-                  helper="Start with the recipe identity, core timing, and diet preferences."
-                />
+          <div className="p-5 sm:p-6 space-y-8">
+            {error && (
+              <div className="rounded-2xl bg-[#fff1f1] border border-[#fecaca] p-4 text-sm text-[#c64545] font-medium">
+                {error}
+              </div>
+            )}
 
-                <div className="mt-6 space-y-6">
-                  <div>
-                    <Label htmlFor="recipe-title">Recipe Title</Label>
-                    <input
-                      id="recipe-title"
-                      value={recipeTitle}
-                      onChange={(event) => setRecipeTitle(event.target.value)}
-                      className="h-12 w-full rounded-2xl border border-[#d7d7de] bg-[#fffdf8] px-4 text-sm text-[#111111] outline-none transition placeholder:text-[#9b8f82] focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/10"
-                      placeholder="e.g. Grandma's Secret Sunday Sauce"
-                    />
+            <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="space-y-8">
+                <section className="space-y-6">
+                  <SectionHeader icon={Info} title="Basic Details" />
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="title">Recipe Title</Label>
+                      <input
+                        id="title"
+                        value={recipeTitle}
+                        onChange={(e) => setRecipeTitle(e.target.value)}
+                        className="h-12 w-full rounded-2xl border border-[#d7d7de] bg-[#fffdf8] px-4 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/10"
+                        placeholder="e.g. Grandma's Secret Sunday Sauce"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="desc">Description</Label>
+                      <textarea
+                        id="desc"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={3}
+                        className="w-full resize-none rounded-2xl border border-[#d7d7de] bg-[#fffdf8] px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/10"
+                        placeholder="A short blurb about this dish..."
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4">
                     <div>
                       <Label htmlFor="cuisine">Cuisine</Label>
                       <div className="relative">
                         <select
                           id="cuisine"
                           value={cuisine}
-                          onChange={(event) => setCuisine(event.target.value)}
+                          onChange={(e) => setCuisine(e.target.value)}
                           className="h-12 w-full appearance-none rounded-2xl border border-[#d7d7de] bg-[#fffdf8] px-4 pr-11 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/10"
                         >
-                          {cuisineOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
+                          {cuisineOptions.map((o) => (<option key={o} value={o}>{o}</option>))}
                         </select>
                         <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7c7c85]" />
                       </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="dietary-label">Dietary Labels</Label>
-                      <div className="relative">
-                        <select
-                          id="dietary-label"
-                          value={dietaryLabel}
-                          onChange={(event) => setDietaryLabel(event.target.value)}
-                          className="h-12 w-full appearance-none rounded-2xl border border-[#d7d7de] bg-[#fffdf8] px-4 pr-11 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/10"
-                        >
-                          {dietaryOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7c7c85]" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 block text-sm font-medium text-[#4c4038]">Difficulty Level</p>
-                    <div className="flex flex-wrap gap-2">
-                      {difficultyOptions.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => setDifficulty(option)}
-                          className={[
-                            'rounded-full border px-4 py-2 text-sm font-medium transition',
-                            difficulty === option
-                              ? 'border-[#8d5c24] bg-[#fff4ea] text-[#8d5c24] shadow-[0_12px_24px_rgba(141,92,36,0.14)]'
-                              : 'border-[#e7e7ea] bg-[#f7f7f9] text-[#232328] hover:border-[#8d5c24]/30 hover:text-[#111111]',
-                          ].join(' ')}
-                        >
-                          {option}
-                        </button>
-                      ))}
                     </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <Label htmlFor="prep-time">Prep Time (min)</Label>
-                      <FieldShell>
-                        <div className="flex items-center gap-3">
-                          <Clock3 className="h-4 w-4 text-[#d45d10]" />
-                          <input
-                            id="prep-time"
-                            value={prepTime}
-                            onChange={(event) => setPrepTime(event.target.value)}
-                            className="w-full border-0 bg-transparent text-sm text-[#111111] outline-none"
-                          />
-                        </div>
+                      <Label htmlFor="prep">Prep (min)</Label>
+                      <FieldShell className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-[#d45d10]" />
+                        <input id="prep" value={prepTime} onChange={(e) => setPrepTime(e.target.value)} type="number" className="w-full border-0 bg-transparent text-sm outline-none" />
                       </FieldShell>
                     </div>
-
                     <div>
-                      <Label htmlFor="cook-time">Cook Time (min)</Label>
-                      <FieldShell>
-                        <div className="flex items-center gap-3">
-                          <Flame className="h-4 w-4 text-[#d45d10]" />
-                          <input
-                            id="cook-time"
-                            value={cookTime}
-                            onChange={(event) => setCookTime(event.target.value)}
-                            className="w-full border-0 bg-transparent text-sm text-[#111111] outline-none"
-                          />
-                        </div>
+                      <Label htmlFor="cook">Cook (min)</Label>
+                      <FieldShell className="flex items-center gap-2">
+                        <Flame className="h-4 w-4 text-[#d45d10]" />
+                        <input id="cook" value={cookTime} onChange={(e) => setCookTime(e.target.value)} type="number" className="w-full border-0 bg-transparent text-sm outline-none" />
                       </FieldShell>
                     </div>
-
                     <div>
                       <Label htmlFor="servings">Servings</Label>
-                      <div className="flex items-center overflow-hidden rounded-2xl border border-[#d7d7de] bg-[#fffdf8] shadow-[0_8px_18px_rgba(17,17,17,0.03)]">
-                        <button
-                          type="button"
-                          onClick={() => setServings((currentValue) => Math.max(1, currentValue - 1))}
-                          className="inline-flex h-12 w-12 items-center justify-center text-[#8d5c24] transition hover:bg-[#fff1e3] hover:text-[#9a4a12]"
-                          aria-label="Decrease servings"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <div id="servings" className="flex-1 text-center text-sm font-semibold text-[#111111]">
-                          {servings}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setServings((currentValue) => currentValue + 1)}
-                          className="inline-flex h-12 w-12 items-center justify-center text-[#8d5c24] transition hover:bg-[#fff1e3] hover:text-[#9a4a12]"
-                          aria-label="Increase servings"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
+                      <div className="flex items-center overflow-hidden rounded-2xl border border-[#d7d7de] bg-[#fffdf8]">
+                        <button type="button" onClick={() => setServings(s => Math.max(1, s - 1))} className="h-12 w-10 text-[#8d5c24] hover:bg-[#fff1e3] transition"><Minus className="h-4 w-4 mx-auto" /></button>
+                        <div className="flex-1 text-center text-sm font-semibold">{servings}</div>
+                        <button type="button" onClick={() => setServings(s => s + 1)} className="h-12 w-10 text-[#8d5c24] hover:bg-[#fff1e3] transition"><Plus className="h-4 w-4 mx-auto" /></button>
                       </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
+                </section>
 
-              <motion.div variants={fadeUp} className="rounded-[30px] border border-[#ead9c7] bg-white/85 p-5 shadow-[0_18px_45px_rgba(17,17,17,0.06)] sm:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <SectionHeader
-                    icon={UtensilsCrossed}
-                    title="Ingredients"
-                    helper="Define mandatory items with the lock icon."
-                  />
-                  <div className="hidden rounded-full bg-[#fff4ea] px-3 py-1.5 text-xs font-semibold text-[#8d5c24] sm:inline-flex">
-                    {ingredients.length} items
+                <section className="space-y-6">
+                  <SectionHeader icon={UtensilsCrossed} title="Ingredients" helper="Add as many items as needed." />
+                  <div className="space-y-3">
+                    {ingredients.map((item) => (
+                      <IngredientRow key={item.id} item={item} onChange={updateIngredient} onRemove={removeIngredient} />
+                    ))}
+                    <button type="button" onClick={addIngredient} className="inline-flex items-center gap-2 text-sm font-semibold text-[#d45d10] hover:text-[#9a4a12] transition">
+                      <CirclePlus className="h-4 w-4" /> Add Item
+                    </button>
                   </div>
-                </div>
+                </section>
 
-                <div className="mt-5 hidden rounded-2xl bg-[#fff4ea] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8d5c24] md:grid md:grid-cols-12 md:gap-3">
-                  <div className="md:col-span-5">Ingredient Name</div>
-                  <div className="md:col-span-2">Qty</div>
-                  <div className="md:col-span-2">Unit</div>
-                  <div className="md:col-span-3 text-right">Req.</div>
-                </div>
+                <section className="space-y-6">
+                  <SectionHeader icon={CheckCircle2} title="Instructions" helper="Break it down into simple steps." />
+                  <div className="space-y-4">
+                    {steps.map((step, idx) => (
+                      <StepCard key={step.id} index={idx} step={step} onChange={updateStep} onRemove={removeStep} />
+                    ))}
+                    <button type="button" onClick={addStep} className="inline-flex items-center gap-2 text-sm font-semibold text-[#d45d10] hover:text-[#9a4a12] transition">
+                      <CirclePlus className="h-4 w-4" /> Add Step
+                    </button>
+                  </div>
+                </section>
 
-                <div className="mt-4 space-y-3">
-                  {ingredients.map((item) => (
-                    <IngredientRow
-                      key={item.id}
-                      item={item}
-                      onChange={updateIngredient}
-                      onRemove={removeIngredient}
-                    />
-                  ))}
-                </div>
+                <section className="space-y-6 pt-4 border-t border-[#ead9c7]/20">
+                  <SectionHeader icon={Plus} title="Cooking Tips" helper="Optional professional advice for this dish." />
+                  <div className="space-y-3">
+                    {cookingTips.map((tip, index) => (
+                      <div key={index} className="flex gap-3">
+                        <textarea
+                          rows={2}
+                          value={tip}
+                          onChange={(e) => updateTip(index, e.target.value)}
+                          className="w-full resize-none rounded-2xl border border-[#d7d7de] bg-[#fffdf8] px-4 py-3 text-sm text-[#111111] outline-none transition focus:border-[#ff7a18] focus:ring-4 focus:ring-[#ff7a18]/10"
+                          placeholder="Tip or suggestion..."
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeTip(index)}
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#9b8f82] transition hover:bg-[#fff1e3] hover:text-[#9a4a12]"
+                          aria-label="Remove tip"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addTip} className="inline-flex items-center gap-2 text-sm font-semibold text-[#d45d10] hover:text-[#9a4a12] transition">
+                      <CirclePlus className="h-4 w-4" /> Add Tip
+                    </button>
+                  </div>
+                </section>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={addIngredient}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#fff4ea] bg-[#fff4ea] px-4 py-3 text-sm font-semibold text-[#8d5c24] transition hover:border-[#3f725d]/40 hover:bg-[#fff4ea]"
-                >
-                  <CirclePlus className="h-4 w-4" />
-                  Add Ingredient
-                </button>
-              </motion.div>
+              <div className="space-y-8">
+                <section className="space-y-6">
+                  <SectionHeader icon={Camera} title="Recipe Media" />
+                  <div className="overflow-hidden rounded-[28px] border-2 border-dashed border-[#ead9c7] bg-[#fffaf5] p-2">
+                    <div className="relative aspect-square overflow-hidden rounded-[22px] bg-white">
+                      {imagePreview ? (
+                        <>
+                          <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                          <button onClick={() => { setImagePayload(null); setImagePreview(null); }} className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-[#c64545] shadow-lg hover:bg-white">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center p-6 text-center transition hover:bg-[#fff4ea]">
+                          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fff1e3] text-[#d45d10] shadow-sm">
+                            <Camera className="h-8 w-8" />
+                          </div>
+                          <p className="text-sm font-semibold text-[#111111]">Click to upload</p>
+                          <p className="mt-2 text-xs text-[#6e6258]">High quality JPG or PNG works best.</p>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </section>
 
-              <motion.div variants={fadeUp} className="rounded-[30px] border border-[#ead9c7] bg-white/85 p-5 shadow-[0_18px_45px_rgba(17,17,17,0.06)] sm:p-6">
-                <SectionHeader
-                  icon={CheckCircle2}
-                  title="Instructions"
-                  helper="Write each step as something a cook can act on immediately."
-                />
-
-                <div className="mt-5 space-y-4">
-                  {steps.map((step, index) => (
-                    <StepCard key={step.id} step={step} index={index} onChange={updateStep} onRemove={removeStep} />
-                  ))}
-                </div>
-
-                <div className="mt-5 flex justify-center">
+                <div className="rounded-[30px] border border-[#ead9c7] bg-[#fffaf5] p-6 shadow-sm">
+                  <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-[#111111]">
+                    <Sparkles className="h-5 w-5 text-[#d45d10]" /> Finalize
+                  </h3>
+                  <p className="mt-2 text-sm text-[#6e6258]">
+                    Once saved, your recipe will be added to your personal collection.
+                  </p>
                   <button
-                    type="button"
-                    onClick={addStep}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#ff7a18] px-5 py-3 text-sm font-semibold text-[#111111] shadow-[0_18px_35px_rgba(255,122,24,0.28)] transition-transform hover:-translate-y-0.5"
+                    onClick={handleSaveRecipe}
+                    disabled={isSaving}
+                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#ff7a18] px-6 py-4 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(255,122,24,0.3)] transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Plus className="h-4 w-4" />
-                    Add Step
+                    {isSaving ? 'Saving Recipe...' : 'Save Recipe'}
                   </button>
                 </div>
-              </motion.div>
-
-              <motion.div variants={fadeUp} className="space-y-3">
-                <details className="group overflow-hidden rounded-[26px] border border-[#ead9c7] bg-white/80 shadow-[0_14px_34px_rgba(17,17,17,0.05)]">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left [&::-webkit-details-marker]:hidden">
-                    <span className="flex items-center gap-3 font-display text-lg font-semibold text-[#111111]">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#fff1e3] text-[#d45d10]">
-                        <Camera className="h-4 w-4" />
-                      </span>
-                      Recipe Cover (Optional)
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-[#8f6a4b] transition group-open:rotate-180" />
-                  </summary>
-                  <div className="border-t border-[#f0e3d6] px-5 pb-5 pt-4">
-                    <p className="text-sm text-[#6e6258]">
-                      Add a cover image to make the recipe feel polished and easier to recognize in your collection.
-                    </p>
-
-                    <div className="mt-4 rounded-[28px] border-2 border-dashed border-[#cfd2c8] bg-[linear-gradient(180deg,rgba(255,255,255,0.9)_0%,rgba(255,244,234,0.8)_100%)] p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-                      <div className="flex min-h-[190px] items-center justify-center rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(255,122,24,0.06),_transparent_35%),linear-gradient(180deg,rgba(255,248,240,0.2),rgba(63,114,93,0.06))] px-4 py-8">
-                        <div className="max-w-[220px] text-[#6e6258]">
-                          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-[#d45d10] shadow-[0_14px_28px_rgba(17,17,17,0.08)]">
-                            <Camera className="h-6 w-6" />
-                          </div>
-                          <p className="mt-4 text-sm font-medium text-[#4c4038]">Click to upload image</p>
-                          <p className="mt-2 text-xs leading-6 text-[#7f7267]">
-                            Choose a landscape photo with natural light and clean composition.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </details>
-              </motion.div>
-
-              <motion.div variants={fadeUp} className="space-y-3">
-                <details
-                  open={nutritionOpen}
-                  onToggle={(event) => setNutritionOpen(event.currentTarget.open)}
-                  className="group overflow-hidden rounded-[26px] border border-[#ead9c7] bg-white/80 shadow-[0_14px_34px_rgba(17,17,17,0.05)]"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left [&::-webkit-details-marker]:hidden">
-                    <span className="flex items-center gap-3 font-display text-lg font-semibold text-[#111111]">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#fff1e3] text-[#d45d10]">
-                        <Flame className="h-4 w-4" />
-                      </span>
-                      Nutrition (Optional)
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-[#8f6a4b] transition group-open:rotate-180" />
-                  </summary>
-                  <div className="border-t border-[#f0e3d6] px-5 pb-5 pt-1 text-sm text-[#5d5148]">
-                    Add calories, macros, or dietary notes for a more complete recipe entry.
-                  </div>
-                </details>
-
-                <details
-                  open={tipsOpen}
-                  onToggle={(event) => setTipsOpen(event.currentTarget.open)}
-                  className="group overflow-hidden rounded-[26px] border border-[#ead9c7] bg-white/80 shadow-[0_14px_34px_rgba(17,17,17,0.05)]"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left [&::-webkit-details-marker]:hidden">
-                    <span className="flex items-center gap-3 font-display text-lg font-semibold text-[#111111]">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#fff1e3] text-[#d45d10]">
-                        <Info className="h-4 w-4" />
-                      </span>
-                      Cooking Tips (Optional)
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-[#8f6a4b] transition group-open:rotate-180" />
-                  </summary>
-                  <div className="border-t border-[#f0e3d6] px-5 pb-5 pt-1 text-sm text-[#5d5148]">
-                    Note garnish ideas, timing warnings, or plating guidance so the recipe feels finished.
-                  </div>
-                </details>
-              </motion.div>
-
-              <motion.div variants={fadeUp} className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setPublishPromptOpen(true)}
-                  className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#ff7a18] px-6 py-4 text-sm font-semibold text-[#111111] shadow-[0_20px_40px_rgba(255,122,24,0.28)] transition-transform hover:-translate-y-0.5"
-                >
-                  Save Recipe
-                </button>
-                
-              </motion.div>
-            
-            </div>
-
-            <div className="space-y-5 xl:sticky xl:top-6">
+              </div>
             </div>
           </div>
         </motion.div>
       </motion.section>
-
-      {publishPromptOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/35 px-4 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="w-full max-w-md rounded-[28px] border border-[#ead9c7] bg-white p-5 shadow-[0_24px_60px_rgba(17,17,17,0.18)]"
-          >
-            <div className="flex items-start gap-3">
-              
-              <div className="flex-1">
-                <h2 className="font-display text-xl font-semibold text-[#111111]">Do you want to publish this recipe?</h2>
-                <p className="mt-2 text-sm leading-6 text-[#6e6258]">
-                  Publishing will allow others to view and try your recipe. 
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setPublishPromptOpen(false)}
-                className="inline-flex items-center justify-center rounded-full border border-[#ead9c7] bg-white px-4 py-2.5 text-sm font-semibold text-[#4c4038] transition hover:bg-[#fff8f0] hover:text-[#111111]"
-              >
-                Ignore
-              </button>
-              <button
-                type="button"
-                onClick={() => setPublishPromptOpen(false)}
-                className="inline-flex items-center justify-center rounded-full bg-[#ff7a18] px-4 py-2.5 text-sm font-semibold text-[#111111] shadow-[0_16px_30px_rgba(255,122,24,0.28)] transition hover:-translate-y-0.5"
-              >
-                Publish
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      ) : null}
     </div>
   );
-}
+}

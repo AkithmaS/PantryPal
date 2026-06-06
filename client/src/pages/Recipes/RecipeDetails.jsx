@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Clock3, Users } from 'lucide-react';
+import { Clock3, Users, Sparkles, Info } from 'lucide-react';
 import apiClient from '../../api/client.js';
 import cardIcon from '../../assets/icon.png';
 
@@ -29,7 +29,19 @@ export default function RecipeDetails() {
         const res = await apiClient.get(`/recipes/${id}`);
         setRecipe(res.data?.data || null);
       } catch (err) {
-        setError(err?.response?.data?.message || 'Unable to load recipe');
+        // Fall back to community recipes stored in localStorage
+        try {
+          const stored = localStorage.getItem('communityRecipes');
+          const communityRecipes = stored ? JSON.parse(stored) : [];
+          const found = communityRecipes.find((r) => String(r.id) === String(id));
+          if (found) {
+            setRecipe(found);
+          } else {
+            setError(err?.response?.data?.message || 'Unable to load recipe');
+          }
+        } catch {
+          setError(err?.response?.data?.message || 'Unable to load recipe');
+        }
       } finally {
         setLoading(false);
       }
@@ -42,13 +54,15 @@ export default function RecipeDetails() {
   if (error) return <div className="p-6 text-sm text-[#c64545]">{error}</div>;
   if (!recipe) return null;
 
+  const recipeImage = recipe.image_url || cardIcon;
+
   return (
     <div className="min-h-screen bg-[#fff8f0] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto w-full max-w-7xl">
         <div className="mb-6 rounded-[20px] border border-[#ead9c7] bg-white p-6 shadow-[0_12px_28px_rgba(17,17,17,0.06)]">
           <div className="flex items-start gap-6">
             <div className="h-24 w-24 shrink-0 rounded-lg bg-[#fff4ea] p-4">
-              <img src={cardIcon} alt="icon" className="h-full w-full object-contain" />
+              <img src={recipeImage} alt={recipe.name || recipe.title || 'Recipe image'} className="h-full w-full object-contain" />
             </div>
             <div className="flex-1">
               <h1 className="text-3xl font-display font-semibold text-[#111111]">{recipe.name || recipe.title}</h1>
@@ -110,19 +124,24 @@ export default function RecipeDetails() {
               </div>
             </div>
 
-            {((recipe.cookingTips && recipe.cookingTips.length) || (recipe.cooking_tips && recipe.cooking_tips.length)) ? (
-              <div className="rounded-[12px] border border-[#f3e1cf] bg-[#fff4ea] p-5">
-                <h3 className="text-lg font-semibold text-[#111111]">Cooking Tips</h3>
-                <ul className="mt-3 space-y-2 text-sm text-[#4c4038]">
-                  {(recipe.cookingTips || recipe.cooking_tips || []).map((tip, i) => (
-                    <li key={i} className="flex gap-3 items-start">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-[#d45d10]" />
-                      <span>{tip}</span>
-                    </li>
+            {((recipe.cooking_tips && recipe.cooking_tips.length > 0) || (recipe.cookingTips && recipe.cookingTips.length > 0)) && (
+              <div className="rounded-[12px] border border-[#f3e1cf] bg-[#fffcf8] p-6 shadow-sm">
+                <div className="flex items-center gap-3 text-[#d45d10]">
+                  <Sparkles className="h-5 w-5" />
+                  <h3 className="font-display text-lg font-semibold">Cooking Tips</h3>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {(recipe.cooking_tips || recipe.cookingTips || []).map((tip, i) => (
+                    <div key={i} className="flex gap-3 items-start rounded-xl bg-[#fff4ea]/50 p-4">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[#d45d10] shadow-sm">
+                        <Info className="h-3.5 w-3.5" />
+                      </div>
+                      <p className="text-sm leading-6 text-[#4c4038]">{tip}</p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
-            ) : null}
+            )}
 
             {recipe.nutrition ? (
               <div className="rounded-[12px] border border-[#ead9c7] bg-white p-5">

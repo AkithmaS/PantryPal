@@ -43,7 +43,7 @@ export default function Login() {
       const token = response?.data?.data?.token;
       const user = response?.data?.data?.user;
       if (token) {
-        localStorage.setItem('pantrypal_token', token);
+        sessionStorage.setItem('pantrypal_token', token);
       }
 
       if (user) {

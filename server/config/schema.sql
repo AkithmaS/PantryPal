@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS recipes (
     dietary_tags TEXT[] DEFAULT '{}',
     user_notes TEXT,
     image_url TEXT,
+    cooking_tips TEXT[] DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -106,10 +107,23 @@ CREATE TABLE IF NOT EXISTS shopping_list_items (
     ingredient_name VARCHAR(255) NOT NULL,
     quantity INTEGER NOT NULL,
     unit VARCHAR(50) NOT NULL,
+    category VARCHAR(100) NOT NULL DEFAULT 'Other',
     is_checked BOOLEAN DEFAULT FALSE,
     from_meal_plan BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--waste log table
+CREATE TABLE IF NOT EXISTS waste_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    item_name VARCHAR(255) NOT NULL,
+    normalized_name VARCHAR(255) NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit VARCHAR(50) NOT NULL,
+    reason VARCHAR(50) NOT NULL DEFAULT 'expired',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for performance optimization
@@ -123,6 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_recipes_cuisine_type ON recipes(cuisine_type);
 CREATE INDEX IF NOT EXISTS idx_meal_plans_user_id ON meal_plans(user_id);
 
 create index if not exists idx_shopping_list_user_id on shopping_list_items(user_id);
+create index if not exists idx_waste_logs_user_id on waste_logs(user_id);
 
 --dunction to update the updated_at column on update
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -1,11 +1,6 @@
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
-  BadgeCheck,
-  ChefHat,
-  CookingPot,
-  ScanSearch,
-  TimerReset,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import logoIcon from '../assets/icon.png';
@@ -13,13 +8,11 @@ import heroBackground from '../assets/brooke-lark-jUPOXXRNdcA-unsplash.jpg';
 import ctaBackground from '../assets/new.jpg';
 import {
   featureCards,
-  heroMetrics,
   stepCards,
   testimonialCards,
 } from '../data/landingContent';
 import {
   FeatureCard,
-  MetricCard,
   StepCard,
   TestimonialCard,
 } from '../components/landing/LandingCards';
@@ -90,12 +83,6 @@ export default function Landing() {
                 Get Started
                 <ArrowRight className="h-4 w-4" />
               </MotionLink>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="mt-10 grid gap-4 sm:grid-cols-3">
-              {heroMetrics.map((metric) => (
-                <MetricCard key={metric.label} {...metric} />
-              ))}
             </motion.div>
           </motion.div>
         </div>
