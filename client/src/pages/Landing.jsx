@@ -8,11 +8,13 @@ import heroBackground from '../assets/brooke-lark-jUPOXXRNdcA-unsplash.jpg';
 import ctaBackground from '../assets/new.jpg';
 import {
   featureCards,
+  heroMetrics,
   stepCards,
   testimonialCards,
 } from '../data/landingContent';
 import {
   FeatureCard,
+  MetricCard,
   StepCard,
   TestimonialCard,
 } from '../components/landing/LandingCards';
@@ -62,7 +64,7 @@ export default function Landing() {
               className="mt-6 font-display text-5xl font-semibold tracking-tight text-[#111111] sm:text-6xl lg:text-7xl"
             >
               Cook smarter.
-              <span className="block text-[#d45d10]">Waste less.</span>
+              <span className="block text-[#d45d10]">From Pantry to Plate.</span>
             </motion.h1>
 
             <motion.p
@@ -83,6 +85,12 @@ export default function Landing() {
                 Get Started
                 <ArrowRight className="h-4 w-4" />
               </MotionLink>
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="mt-10 grid gap-4 sm:grid-cols-3">
+              {heroMetrics.map((metric) => (
+                <MetricCard key={metric.label} {...metric} />
+              ))}
             </motion.div>
           </motion.div>
         </div>

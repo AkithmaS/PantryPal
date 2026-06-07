@@ -69,6 +69,22 @@ export default function App() {
         }
       />
       <Route
+        path="/pantry/expiring"
+        element={
+          <PrivateShell>
+            <Pantry filter="expiring" />
+          </PrivateShell>
+        }
+      />
+      <Route
+        path="/pantry/running-low"
+        element={
+          <PrivateShell>
+            <Pantry filter="running-low" />
+          </PrivateShell>
+        }
+      />
+      <Route
         path="/recipes"
         element={
           <PrivateShell>

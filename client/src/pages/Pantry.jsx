@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   Calendar,
@@ -138,7 +139,8 @@ function PantryItemCard({ item, onDelete, onEdit }) {
   );
 }
 
-export default function Pantry() {
+export default function Pantry({ filter }) {
+  const navigate = useNavigate();
   const {
     items,
     setItems,
@@ -150,7 +152,8 @@ export default function Pantry() {
   } = usePantry();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [showExpiringSoonOnly, setShowExpiringSoonOnly] = useState(false);
+  const [showExpiringSoonOnly, setShowExpiringSoonOnly] = useState(filter === 'expiring');
+  const [showRunningLowOnly, setShowRunningLowOnly] = useState(filter === 'running-low');
   const [expiredItems, setExpiredItems] = useState([]);
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [deletingExpired, setDeletingExpired] = useState(false);
@@ -170,6 +173,12 @@ export default function Pantry() {
     expiryDate: '',
     runningLow: false,
   });
+
+  useEffect(() => {
+    // Update filter states when filter prop changes
+    setShowExpiringSoonOnly(filter === 'expiring');
+    setShowRunningLowOnly(filter === 'running-low');
+  }, [filter]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -217,9 +226,13 @@ export default function Pantry() {
           return daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
         })());
 
-      return matchesSearch && matchesCategory && matchesExpiringSoon;
+      const matchesRunningLow =
+        !showRunningLowOnly ||
+        item.is_running_low;
+
+      return matchesSearch && matchesCategory && matchesExpiringSoon && matchesRunningLow;
     });
-  }, [activeCategory, items, searchTerm, showExpiringSoonOnly]);
+  }, [activeCategory, items, searchTerm, showExpiringSoonOnly, showRunningLowOnly]);
 
   const expiringSoonCount = useMemo(
     () => items.filter((item) => {
@@ -233,8 +246,25 @@ export default function Pantry() {
     [items],
   );
 
+  const runningLowCount = useMemo(
+    () => items.filter((item) => item.is_running_low).length,
+    [items],
+  );
+
   const toggleExpiringSoonFilter = () => {
-    setShowExpiringSoonOnly((currentValue) => !currentValue);
+    if (showExpiringSoonOnly) {
+      navigate('/pantry');
+    } else {
+      navigate('/pantry/expiring');
+    }
+  };
+
+  const toggleRunningLowFilter = () => {
+    if (showRunningLowOnly) {
+      navigate('/pantry');
+    } else {
+      navigate('/pantry/running-low');
+    }
   };
 
   const closeExpiredModal = () => {
@@ -416,7 +446,7 @@ export default function Pantry() {
 
           <motion.div
             variants={fadeUp}
-            className="mt-6"
+            className="mt-6 flex flex-col gap-4 lg:flex-row lg:gap-4"
           >
             <button
               type="button"
@@ -435,6 +465,28 @@ export default function Pantry() {
                   <p className="mt-1 text-sm font-medium text-[#9c8250]">
                     {expiringSoonCount} items expiring within 7 days
                     {showExpiringSoonOnly ? ' - showing only expiring items' : ''}
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleRunningLowFilter}
+              className={`w-full rounded-[22px] border px-4 py-4 text-left transition sm:px-5 ${showRunningLowOnly ? 'border-[#ff7a18] bg-[#fff3e7] shadow-[0_12px_28px_rgba(255,122,24,0.12)]' : 'border-[#f2dfb7] bg-[#fff8df]'}`}
+              aria-pressed={showRunningLowOnly}
+            >
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/60 text-[#b08a1f]">
+                  <AlertCircle className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-display text-base font-semibold text-[#8d5c24] sm:text-lg">
+                    Running Low Items
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-[#9c8250]">
+                    {runningLowCount} items marked as running low
+                    {showRunningLowOnly ? ' - showing only running low items' : ''}
                   </p>
                 </div>
               </div>
@@ -510,7 +562,9 @@ export default function Pantry() {
                 <p className="mt-2 text-sm leading-7 text-[#6e6258]">
                   {showExpiringSoonOnly
                     ? 'No items are expiring within the next 7 days. Click the banner again to show all pantry items.'
-                    : 'Try a different search term or switch categories to see more ingredients.'}
+                    : showRunningLowOnly
+                      ? 'No items marked as running low. Click the banner again to show all pantry items.'
+                      : 'Try a different search term or switch categories to see more ingredients.'}
                 </p>
               </div>
             )}
