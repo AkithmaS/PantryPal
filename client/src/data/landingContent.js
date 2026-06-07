@@ -2,11 +2,10 @@ import {
   CalendarRange,
   Clock,
   Refrigerator,
-  RotateCcw,
+  Share2,
   ShoppingCart,
   Sparkles,
   Users,
-  Share2,
 } from 'lucide-react';
 import addYourPantryImage from '../assets/add_your_pantry.jpg';
 import discoverRecipesImage from '../assets/discover_recepies.jpg';
