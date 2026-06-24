@@ -1,7 +1,5 @@
-// api/index.js — Vercel Serverless Function entry point
-// This file wraps the entire Express app for Vercel deployment.
-// All existing server code is reused without modification.
-
+// Vercel Serverless Function entry point.
+// Vercel routes all /api/* requests here. Express handles the rest.
 import app from '../server/server.js';
 
 export default app;
