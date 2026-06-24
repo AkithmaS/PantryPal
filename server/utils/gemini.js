@@ -1,7 +1,5 @@
-import dotenv from 'dotenv';
+// dotenv is loaded once in server.js — no need to load it here.
 import { GoogleGenAI } from '@google/genai';
-
-dotenv.config();
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,

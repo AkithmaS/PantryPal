@@ -635,9 +635,6 @@ export default function AIGenerator() {
                       <Sparkles className="h-10 w-10" />
                     </div>
                     <p className="mt-5 text-lg font-medium text-[#6e6258]">Your generated recipe will appear here</p>
-                    <p className="mt-2 max-w-sm text-sm leading-7 text-[#8b8075]">
-                      Hit Generate Recipe after adjusting the left card to see a PantryPal-styled preview.
-                    </p>
                   </div>
                 )}
               </div>

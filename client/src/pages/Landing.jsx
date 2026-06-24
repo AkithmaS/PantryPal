@@ -8,13 +8,11 @@ import heroBackground from '../assets/brooke-lark-jUPOXXRNdcA-unsplash.jpg';
 import ctaBackground from '../assets/new.jpg';
 import {
   featureCards,
-  heroMetrics,
   stepCards,
   testimonialCards,
 } from '../data/landingContent';
 import {
   FeatureCard,
-  MetricCard,
   StepCard,
   TestimonialCard,
 } from '../components/landing/LandingCards';
@@ -87,11 +85,6 @@ export default function Landing() {
               </MotionLink>
             </motion.div>
 
-            <motion.div variants={fadeUp} className="mt-10 grid gap-4 sm:grid-cols-3">
-              {heroMetrics.map((metric) => (
-                <MetricCard key={metric.label} {...metric} />
-              ))}
-            </motion.div>
           </motion.div>
         </div>
       </section>

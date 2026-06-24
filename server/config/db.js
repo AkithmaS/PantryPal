@@ -1,6 +1,8 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
+// dotenv.config() is safe to call multiple times — it's a no-op if env vars are
+// already set (e.g. on Vercel where they're injected by the platform).
+// We call it here because ESM evaluates this module before server.js finishes
+// running dotenv.config(), so process.env would be empty without this.
+import 'dotenv/config';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -51,8 +53,9 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-    console.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    // Log but don't crash — process.exit() is unsafe in serverless environments
+    // (Vercel) because it would kill the entire function instance.
+    console.error('Unexpected error on idle PostgreSQL client', err);
 });
 
 export default{
